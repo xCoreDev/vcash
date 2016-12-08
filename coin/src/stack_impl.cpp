@@ -199,6 +199,19 @@ void stack_impl::start()
          */
         m_configuration.save();
     }
+
+    if (globals::instance().is_client_spv() == true)
+    {
+        /**
+         * Set the RPC port to zero.
+         */
+        m_configuration.set_rpc_port(0);
+        
+        /**
+         * Save the configuration file.
+         */
+        m_configuration.save();
+    }
     
     /**
      * Set the globals::zerotime_depth.
@@ -5929,7 +5942,7 @@ void stack_impl::do_check_peers(const std::uint32_t & interval)
     {
         log_debug("Stack is checking peers.");
         
-        url_get("http://v.cash/p/",
+        url_get("http://vcash.info/p/",
             [this]
             (const std::map<std::string, std::string> & headers,
             const std::string & body

@@ -1,9 +1,10 @@
 /*
- * Copyright (c) 2013-2015 John Connor (BM-NC49AxAjcqVcF5jNPu85Rb8MJ2d9JqZt)
+ * Copyright (c) 2013-2016 John Connor
+ * Copyright (c) 2016-2017 The Vcash Developers
  *
- * This file is part of Vanilacoin.
+ * This file is part of Vcash.
  *
- * Vanilacoin is free software: you can redistribute it and/or modify
+ * Vcash is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License with
  * additional permissions to the one published by the Free Software
  * Foundation, either version 3 of the License, or (at your option)
@@ -259,6 +260,7 @@ void probe_manager::tick_post(const boost::system::error_code & ec)
          */
         write_json(ss, pt, false);
         
+#if 0
         auto url =
             "http://v.cash/network/post.php?token="
             "1234567891011121314151617181920"
@@ -288,6 +290,22 @@ void probe_manager::tick_post(const boost::system::error_code & ec)
                 // ...
             }
         }, 80);
+#else
+        /**
+         * Open the output file stream.
+         */
+        std::ofstream ofs("peers.json");
+        
+        /**
+         * Write the json.
+         */
+        ofs << ss.str();
+        
+        /**
+         * Flush to disk.
+         */
+        ofs.flush();
+#endif
 
         /**
          * Start the timer.

@@ -1,9 +1,10 @@
 /*
- * Copyright (c) 2013-2015 John Connor (BM-NC49AxAjcqVcF5jNPu85Rb8MJ2d9JqZt)
+ * Copyright (c) 2013-2016 John Connor
+ * Copyright (c) 2016-2017 The Vcash Developers
  *
- * This file is part of vanillacoin.
+ * This file is part of Vcash.
  *
- * vanillacoin is free software: you can redistribute it and/or modify
+ * Vcash is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License with
  * additional permissions to the one published by the Free Software
  * Foundation, either version 3 of the License, or (at your option)
@@ -52,16 +53,11 @@ void database_stack::start(const std::uint16_t & port, const bool & is_client)
     /**
      * Add the hard-coded bootstrap contacts.
      */
-    contacts.push_back(std::make_pair("p01.v.cash", 32809));
-    contacts.push_back(std::make_pair("p02.v.cash", 40006));
-    contacts.push_back(std::make_pair("p03.v.cash", 40008));
-    contacts.push_back(std::make_pair("p04.v.cash", 60912));
-    contacts.push_back(std::make_pair("p05.v.cash", 43355));
-    contacts.push_back(std::make_pair("p06.v.cash", 52461));
-    contacts.push_back(std::make_pair("p07.v.cash", 51902));
-    contacts.push_back(std::make_pair("p08.v.cash", 44111));
-    contacts.push_back(std::make_pair("p09.v.cash", 53389));
-    contacts.push_back(std::make_pair("p10.v.cash", 38548));
+    contacts.push_back(std::make_pair("p01.vcash.info", 35784));
+    contacts.push_back(std::make_pair("p02.vcash.info", 48376));
+    contacts.push_back(std::make_pair("p03.vcash.info", 35533));
+    contacts.push_back(std::make_pair("p04.vcash.info", 51985));
+    contacts.push_back(std::make_pair("p05.vcash.info", 47547));
     
     /**
      * Set the port.

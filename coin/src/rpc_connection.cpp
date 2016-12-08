@@ -3718,6 +3718,10 @@ rpc_connection::json_rpc_response_t rpc_connection::json_getnetworkinfo(
             ret.result.put(
                 "udp.port", stack_impl_.get_configuration().network_port_tcp()
             );
+            ret.result.put(
+                "collateralized",
+                stack_impl_.get_incentive_manager()->collateralized_nodes()
+            );
         }
         catch (...)
         {
@@ -6873,6 +6877,13 @@ boost::property_tree::ptree rpc_connection::received_to_ptree(
             
             ret.push_back(std::make_pair("", obj));
         }
+    }
+    
+    if (ret.size() == 0)
+    {
+        ret.push_back(
+            std::make_pair("", boost::property_tree::ptree())
+        );
     }
     
     return ret;
