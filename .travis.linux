@@ -1,0 +1,13 @@
+dist: xenial
+language:  cpp
+compiler : gcc
+before_install:
+  - sudo apt-get update -qq
+install:
+  - sudo apt-get install -qq cmake gcc g++ libssl-dev libboost-all-dev
+  - sh setup_linux.sh
+before_script:
+  - mkdir build
+  - cd build
+  - cmake .. 
+script: make

@@ -1,0 +1,16 @@
+dist: xenial
+language: cpp
+compiler: gcc
+before_install:
+- sudo apt-get update -qq
+install:
+- sudo apt-get install -qq cmake gcc g++ libssl-dev libboost-all-dev
+- sh setup_linux.sh
+before_script:
+- mkdir build
+- cd build
+- cmake ..
+script: make
+notifications:
+  slack:
+    secure: GSEpsFDaEw+I9sq6RSBVviSHcIrWg2sMlrhRb1d1JjPQ5gM6+PttviV87J9ya59/cFY8baj6lOo1TBd9q9FTMB1mmOFo5S+zzKvB4uHLnHlxCSg8zOTnNzG0ReYHemfA216klsE902bED//PtgbiC8vnTuizJfa141kWLEhWAkGbgzc7LO1KVclM3lUcLndYVNZEmIjo7VuEY8/mRphcOsdLhDzR3futFm8uMBJBfBb5U95GpMGxH0AKEGwvWPQxy/LMbt/wqQMv56rsWhujXNDJK3ZucX3BxKkXV5TyoN1xsqnYeHAHm08RQ4tPP2VxWIOVZ2ImuwHgP6usZghsBzglN5J8DPRNeviaszPK2/xj8Me6QviskwKhmpLOzaCvi1dck7z2bVb4IKXOwn2TE17rGM2HUGecdQyOMdEbxaHKA+WQMceAr/xfchaa/pW8OGZmTgj+YP0+1j/GfMDTilO+RlpdBM2KjtKgL/8sUiyaYNYog2LiNjkr+n/m1NljTrIUu9kPLNucJLwG4NIPcHpg24Z+p9qPC5us10s9/LMeCBc0YSp/4WxyQfViFpet5R9HMjJTaLGqWfwjbYmIlbTiV/6Z9bWfKBn3eqLUyQ0ppiA29LSzLJE7wEY7G64txDPYLg/ksDj7h8MK6loKqPDId2UFj7krvSVAKqGJJxs=
