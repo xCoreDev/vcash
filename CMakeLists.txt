@@ -156,7 +156,7 @@ set(DATABASE_SOURCES
 	)
 
 IF (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-	set(OPENSSL_ROOT_DIR "/usr/local/Cellar/openssl/${OPENSSL_VER}/")
+  set(OPENSSL_ROOT_DIR "/usr/local/Cellar/openssl/${OPENSSL_VER}/")
 endif()
 
 find_package(OpenSSL)
@@ -168,18 +168,15 @@ find_package( Boost COMPONENTS system )
 link_directories ( ${Boost_LIBRARY_DIRS} )
 
 include_directories(
-	${CMAKE_CURRENT_SOURCE_DIR}/coin/include
-	${CMAKE_CURRENT_SOURCE_DIR}/database/include
-	${Boost_INCLUDE_DIRS}
+  ${CMAKE_CURRENT_SOURCE_DIR}/coin/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/database/include
+  ${Boost_INCLUDE_DIRS}
   ${OPENSSL_INCLUDE_DIR}
-	${CMAKE_CURRENT_SOURCE_DIR}/deps/db-${BERKELEY_DB_VER}
-	${CMAKE_CURRENT_SOURCE_DIR}/deps/leveldb/leveldb/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/db-${BERKELEY_DB_VER}
+  ${CMAKE_CURRENT_SOURCE_DIR}/deps/leveldb/leveldb/include
   )
 
 add_definitions("-D_FILE_OFFSET_BITS=64" "-DBOOST_NO_CXX11_NUMERIC_LIMITS")
-
-# Temporarily disable Alerts
-add_definitions("-DBYPASS_ALERTS") ## -DOLD_VCASH")
 
 add_library(coin ${SOURCES})
 set_property(TARGET coin PROPERTY CXX_STANDARD 11)

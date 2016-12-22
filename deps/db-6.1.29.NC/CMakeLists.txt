@@ -280,19 +280,26 @@ set(DB_CXX_SOURCES
   )
 
 
-include_directories(
-  ${CMAKE_CURRENT_SOURCE_DIR}
-  ${CMAKE_CURRENT_SOURCE_DIR}/src
-  )
-
-# run configure if missing header files from configure
-if (EXISTS	"${CMAKE_CURRENT_SOURCE_DIR}/db.h")
-	else()	
-		execute_process(
-		  COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/dist/configure --enable-cxx --disable-shared
-		  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-			)
-endif()	
+# For Windows this library is pre-configured so header files already exist
+IF (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+  include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/build_windows
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+else()
+  include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+  # run configure if missing header files from configure on Linux/Mac
+  if (EXISTS	"${CMAKE_CURRENT_SOURCE_DIR}/db.h")
+  else()	
+	execute_process(
+	  COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/dist/configure --enable-cxx --disable-shared
+	  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+	  )
+  endif()
+endif()
 
 
 IF (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
