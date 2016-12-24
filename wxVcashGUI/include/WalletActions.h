@@ -1,8 +1,8 @@
 /******************************************************************************
- * wxVcashGUI: a GUI for Vcash, the decentralized currency
- *             for the internet (https://v.cash/).
+ * wxVcashGUI: a GUI for Vcash, a decentralized currency
+ *             for the internet (https://vcash.info).
  *
- * Copyright (c) kryptRichards (krypt.Richards@gmail.com)
+ * Copyright (c) The Vcash Developers
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -36,6 +36,7 @@ namespace wxGUI {
         static bool encrypt(VcashApp &vcashApp, wxWindow &parent);
         static std::pair<bool, std::string> restoreHDSeed(wxWindow &parent);
         static bool unlock(VcashApp &vcashApp, wxWindow &parent);
+        static void rescan(VcashApp &vcashApp, wxWindow &parent);
     };
 
     class SettingsMenu : public wxMenu {

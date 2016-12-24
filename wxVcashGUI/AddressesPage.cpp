@@ -1,8 +1,8 @@
 /******************************************************************************
- * wxVcashGUI: a GUI for Vcash, the decentralized currency 
- *             for the internet (https://v.cash/).
+ * wxVcashGUI: a GUI for Vcash, a decentralized currency 
+ *             for the internet (https://vcash.info).
  *
- * Copyright (c) kryptRichards (krypt.Richards@gmail.com)
+ * Copyright (c) The Vcash Developers
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -19,6 +19,7 @@
 #endif
 
 #include "AddressesPage.h"
+#include "BlockExplorer.h"
 #include "ToolsFrame.h"
 #include "VcashApp.h"
 
@@ -26,7 +27,7 @@ namespace wxGUI {
     int cmpAddresses(wxIntPtr item1, wxIntPtr item2, wxIntPtr sortDt) {
         AddressesPage::SortData *sortData = (AddressesPage::SortData *) sortDt;
         AddressesPage *addressesPage = sortData->addressesPage;
-        wxListCtrl *listCtrl = addressesPage->addresses;
+        wxListCtrl *listCtrl = addressesPage->listCtrl;
         auto order = sortData->order;
 
         for(int i=0; i<order.size(); i++) {
@@ -59,70 +60,95 @@ namespace wxGUI {
             if((result != 0) || (i==order.size()-1))
                 return order[i].second ? result : -result;
         }
-        // This is probably an error if we get here
-        return 0;
     }
 }
 
 using namespace wxGUI;
 
 AddressesPage::AddressesPage(VcashApp &vcashApp, wxWindow &parent)
-        : wxPanel(&parent) {
+        : addresses(), wxPanel(&parent) {
 
     vcashApp.view.addressesPage = this;
 
-    addresses = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+    listCtrl = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxSize(445, wxDefaultSize.GetHeight()),
                                wxLC_REPORT | wxLC_SINGLE_SEL | wxBORDER_NONE);
-    addresses->InsertColumn(Account, "Account", wxLIST_FORMAT_LEFT, 100);
-    addresses->InsertColumn(Address, "Address", wxLIST_FORMAT_LEFT, 330);
+    listCtrl->InsertColumn(Account, "Account", wxLIST_FORMAT_LEFT, 100);
+    listCtrl->InsertColumn(Address, "Address", wxLIST_FORMAT_LEFT, 340);
 
     wxSizer *pageSizer = new wxBoxSizer(wxVERTICAL);
-    pageSizer->Add(addresses, 1, wxALL | wxEXPAND, 5);
+    pageSizer->Add(listCtrl, 1, wxALL | wxEXPAND, 5);
 
     SetSizerAndFit(pageSizer);
 
-    addresses->Bind(wxEVT_LIST_ITEM_RIGHT_CLICK, [this, &vcashApp](wxListEvent &event) {
+    listCtrl->Bind(wxEVT_LIST_ITEM_RIGHT_CLICK, [this, &vcashApp](wxListEvent &event) {
         long index = event.GetIndex();
+        bool onAddress = index >= 0;
 
         enum PopupMenu {
-            Copy, Explorer, New, QR
+            Copy, BlockExperts, VcashExplorer, New, QR
         };
+
+        wxMenu *explorers = new wxMenu();;
+        explorers->Append(BlockExperts, wxT("Block Experts"));
+        explorers->Enable(BlockExperts, onAddress);
+        explorers->Append(VcashExplorer, wxT("Vcash Explorer"));
+        explorers->Enable(VcashExplorer, onAddress);
+
         wxMenu popupMenu;
+        popupMenu.AppendSubMenu(explorers, wxT("&Block explorer"));
+
         popupMenu.Append(Copy, wxT("&Copy"));
-        popupMenu.Append(Explorer, wxT("&Block explorer"));
+        popupMenu.Enable(Copy, onAddress);
         popupMenu.Append(New, wxT("&New"));
+
         popupMenu.Append(QR, wxT("&QR Code"));
+        popupMenu.Enable(QR, onAddress);
 
         auto select = GetPopupMenuSelectionFromUser(popupMenu);
 
         switch (select) {
             case Copy: {
-                wxString address = addresses->GetItemText(index, Address);
+                if (index >= 0) {
+                    wxString address = listCtrl->GetItemText(index, Address);
 
-                auto clipboard = wxTheClipboard;
+                    if (wxTheClipboard->Open()) {
+                        // wxTheClipboard->Clear(); doesn't work on Windows
+                        wxTheClipboard->SetData(new wxTextDataObject(address));
+                        // wxTheClipboard->Flush();
 
-                if (clipboard->Open()) {
-                    clipboard->Clear();
-                    clipboard->SetData(new wxTextDataObject(address));
-                    clipboard->Flush();
-
-                    clipboard->Close();
+                        wxTheClipboard->Close();
+                    }
                 }
                 break;
             }
-            case Explorer: {
-                wxString address = addresses->GetItemText(index, Address);
-                wxString url = "https://www.blockexperts.com/xvc/address/" + address;
-                wxLaunchDefaultBrowser(url);
+
+            case BlockExperts: {
+                if (index >= 0) {
+                    std::string address = listCtrl->GetItemText(index, Address).ToStdString();
+                    wxLaunchDefaultBrowser(BlockExperts::addressURL(address));
+                }
                 break;
             }
+
+            case VcashExplorer: {
+                if (index >= 0) {
+                    std::string address = listCtrl->GetItemText(index, Address).ToStdString();
+                    wxLaunchDefaultBrowser(VcashExplorer::addressURL(address));
+                }
+                break;
+            }
+
             case New: {
-                wxString account = addresses->GetItemText(index, Account);
+                wxString account = (index >= 0) ? listCtrl->GetItemText(index, Account) : wxT("");
                 vcashApp.controller.onConsoleCommandEntered("getnewaddress " + account.ToStdString());
                 break;
             }
+
             case QR:
-                //toDo: generate QR code
+                if (index >= 0) {
+                    //toDo: generate QR code
+                    ;
+                }
                 break;
 
             default:
@@ -136,7 +162,7 @@ AddressesPage::AddressesPage(VcashApp &vcashApp, wxWindow &parent)
     // In case of tie, we use next next element in vector
     sortData = { this, { { Account, true }, { Address, true } }};
 
-    addresses->Bind(wxEVT_LIST_COL_CLICK, [this](wxListEvent &ev) {
+    listCtrl->Bind(wxEVT_LIST_COL_CLICK, [this](wxListEvent &ev) {
         Column column = static_cast<Column >(ev.GetColumn());
 
         int i;
@@ -151,19 +177,62 @@ AddressesPage::AddressesPage(VcashApp &vcashApp, wxWindow &parent)
             for(int j=i; j>0; j--)
                 sortData.order[j] = sortData.order[j-1];
             sortData.order[0] = p;
-            addresses->SortItems(cmpAddresses, (wxIntPtr) &sortData);
+            listCtrl->SortItems(cmpAddresses, (wxIntPtr) &sortData);
         }
     });
 }
 
 void AddressesPage::addAddress(const std::string &account, const std::string &address) {
-    wxListItem item{};
-    int id = addresses->GetItemCount();
-    item.SetId(id);
-    long index = addresses->InsertItem(item);
+    int newItemIndex = listCtrl->GetItemCount();
+    long index;
 
-    addresses->SetItemPtrData(index, (wxUIntPtr) id);
-    addresses->SetItem(index, Account, wxString(account));
-    addresses->SetItem(index, Address, wxString(address));
-    addresses->SortItems(cmpAddresses, (wxIntPtr) &sortData);
+    auto pair = addresses.insert(std::make_pair(address, newItemIndex));
+
+    if (pair.second) {
+        // Not in list. This is a new address
+        wxListItem item{};
+        item.SetId(newItemIndex);
+        index = listCtrl->InsertItem(item);
+
+        if (index >= 0) {
+            listCtrl->SetItemPtrData(index, (wxUIntPtr) newItemIndex);
+            listCtrl->SetItem(index, Account, wxString(account));
+            listCtrl->SetItem(index, Address, wxString(address));
+        } else
+            addresses.erase(pair.first); // was not inserted in listCtrl. Remove it from addresses map
+    } else {
+        // This is an update
+        index = listCtrl->FindItem(-1, pair.first->second); // search for item with this address
+        if (index>=0) {
+            listCtrl->SetItem(index, Account, wxString(account));
+        }
+    }
+
+    listCtrl->SortItems(cmpAddresses, (wxIntPtr) &sortData);
+}
+
+void AddressesPage::emboldenAddress(const std::string &address, bool bold) {
+    int newItemIndex = listCtrl->GetItemCount();
+    long index;
+
+    auto pair = addresses.insert(std::make_pair(address, newItemIndex));
+
+    if (!pair.second) {
+        // This is an update
+        index = listCtrl->FindItem(-1, pair.first->second); // search for item with this address
+        if (index>=0) {
+            wxListItem info;
+            info.m_itemId = pair.first->second;
+            listCtrl->GetItem(info);
+            wxFont font = info.GetFont();
+            font.SetWeight(bold ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL);
+
+            info.SetFont(font);
+            // It seems we need to temporarily change colour in order to effectively change the font
+            wxColour colour = info.GetBackgroundColour();
+            info.SetBackgroundColour(wxColour(0,1,2,3));
+            info.SetBackgroundColour(colour);
+            listCtrl->SetItem(info);
+        }
+    }
 }

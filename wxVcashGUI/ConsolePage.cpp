@@ -1,8 +1,8 @@
 /******************************************************************************
- * wxVcashGUI: a GUI for Vcash, the decentralized currency 
- *             for the internet (https://v.cash/).
+ * wxVcashGUI: a GUI for Vcash, a decentralized currency 
+ *             for the internet (https://vcash.info).
  *
- * Copyright (c) kryptRichards (krypt.Richards@gmail.com)
+ * Copyright (c) The Vcash Developers
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -31,6 +31,7 @@ ConsolePage::ConsolePage(VcashApp &vcashApp, wxWindow &parent) : wxPanel(&parent
     output = new wxRichTextCtrl(
             this, wxID_ANY, wxEmptyString, wxDefaultPosition,
             wxDefaultSize, wxVSCROLL | wxBORDER_NONE | wxWANTS_CHARS);
+
 
     wxFont fixedFont = wxFont(10, wxFONTFAMILY_TELETYPE, wxNORMAL, wxNORMAL);
     output->SetFont(fixedFont);

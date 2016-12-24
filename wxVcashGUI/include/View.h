@@ -1,8 +1,8 @@
 /******************************************************************************
- * wxVcashGUI: a GUI for Vcash, the decentralized currency 
- *             for the internet (https://v.cash/).
+ * wxVcashGUI: a GUI for Vcash, a decentralized currency 
+ *             for the internet (https://vcash.info).
  *
- * Copyright (c) kryptRichards (krypt.Richards@gmail.com)
+ * Copyright (c) The Vcash Developers
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -80,6 +80,7 @@ namespace wxGUI {
 
         // Mining
         void setMining(bool mining);
+        void setHash(const std::string &hashRate);
 
         bool getMining();
 
@@ -88,6 +89,7 @@ namespace wxGUI {
 
         // Address book
         void addAddress(const std::string &account, const std::string &address);
+        void emboldenAddress(const std::string &address, bool bold = true);
 
         // Messages and notifications
         void messageBox(const std::string &msg, const std::string &title, long style);

@@ -1,8 +1,8 @@
 /******************************************************************************
- * wxVcashGUI: a GUI for Vcash, the decentralized currency 
- *             for the internet (https://v.cash/).
+ * wxVcashGUI: a GUI for Vcash, a decentralized currency 
+ *             for the internet (https://vcash.info).
  *
- * Copyright (c) kryptRichards (krypt.Richards@gmail.com)
+ * Copyright (c) The Vcash Developers
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -29,6 +29,11 @@ AccountPage::AccountPage(VcashApp &vcashApp, wxWindow &parent) : wxPanel(&parent
     unconfirmed = new wxStaticText(this, wxID_ANY, wxT("0"));
     stake = new wxStaticText(this, wxID_ANY, wxT("0"));
     immature = new wxStaticText(this, wxID_ANY, wxT("0"));
+
+    balance->SetToolTip(wxT("Your confirmed balance"));
+    unconfirmed->SetToolTip(wxT("Your unconfirmed balance"));
+    stake->SetToolTip(wxT("Your staking balance"));
+    immature->SetToolTip(wxT("Your immature balance"));
 
     int cols = 2, vgap = 10, hgap = 20;
     wxSizer *gridSizer = new wxGridSizer(cols, vgap, hgap);

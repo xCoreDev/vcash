@@ -1,8 +1,8 @@
 /******************************************************************************
- * wxVcashGUI: a GUI for Vcash, the decentralized currency
- *             for the internet (https://v.cash/).
+ * wxVcashGUI: a GUI for Vcash, a decentralized currency
+ *             for the internet (https://vcash.info).
  *
- * Copyright (c) kryptRichards (krypt.Richards@gmail.com)
+ * Copyright (c) The Vcash Developers
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -27,7 +27,7 @@ using namespace wxGUI;
 bool WalletActions::encrypt(VcashApp &vcashApp, wxWindow &parent) {
     wxString title = wxT("Encrypt wallet");
     int result = wxMessageBox(
-            wxT("Encrypting your wallet keeps it safe in case it is lost or stolen. "
+            wxT("Encrypting your wallet keeps it safe in case it is lost or stolen.\n"
                 "Do you want to encrypt your wallet?"),
             title, wxYES_NO | wxICON_QUESTION | wxYES_DEFAULT, &parent);
     if(result == wxYES) {
@@ -66,6 +66,8 @@ void WalletActions::dumpHDSeed(VcashApp &vcashApp, wxWindow &parent) {
 
 std::pair<bool, std::string> WalletActions::restoreHDSeed(wxWindow &parent) {
     // toDo check that deterministic wallets are set on config.dat
+    wxString title = wxT("Create wallet");
+
     int result = wxMessageBox(
             wxT("Do you want to restore your wallet from\na backed up hierarchical deterministic seed?"),
             wxT("Restore wallet"), wxYES_NO | wxICON_QUESTION | wxYES_DEFAULT, &parent);
@@ -88,14 +90,14 @@ std::pair<bool, std::string> WalletActions::restoreHDSeed(wxWindow &parent) {
         } else {
             wxMessageBox(
                     wxT("You did not provide a hierarchical deterministic seed."),
-                    wxT("Create wallet"), wxOK | wxICON_INFORMATION, &parent);
+                    title, wxOK | wxICON_INFORMATION, &parent);
         }
     }
     wxMessageBox(
             wxT("A new wallet will be generated.\n"
-                        "Wait until settings are enabled to do a safe\n"
-                        " back of your hierarchical deterministic seed."),
-            wxT("Create wallet"), wxOK | wxICON_INFORMATION, &parent);
+                        "Wait until wallet is loaded to do a safe\n"
+                        "back up of your hierarchical deterministic seed."),
+            title, wxOK | wxICON_INFORMATION, &parent);
     return std::make_pair(false, "");
 }
 
@@ -108,7 +110,7 @@ bool WalletActions::changePassword(VcashApp &vcashApp, wxWindow &parent) {
         wxMessageBox(
                 wxT("In order to change your password, you need to provide your\n"
                      "old password firstly.\n"
-                     "Do a safe back up of your new password. Once encrypted, you \n"
+                     "Do a safe back up of your new password. Once encrypted, you\n"
                      "will not be able to use your funds without the password."),
                 title, wxOK | wxICON_INFORMATION, &parent);
 
@@ -159,6 +161,22 @@ bool WalletActions::unlock(VcashApp &vcashApp, wxWindow &parent) {
     return pair.first == wxID_OK;
 }
 
+void WalletActions::rescan(VcashApp &vcashApp, wxWindow &parent) {
+    wxString title = wxT("Rescan wallet");
+    int result = wxMessageBox(
+            wxT("Do you want to rescan your wallet?"),
+            title, wxYES_NO | wxICON_QUESTION | wxYES_DEFAULT, &parent);
+    if(result == wxYES) {
+        result = wxMessageBox(
+                wxT("The wallet will shutdown. You will have to\n"
+                    "restart the wallet in order to complete the rescan."
+                ),
+                title, wxOK | wxCANCEL | wxOK_DEFAULT | wxICON_INFORMATION, &parent);
+        if(result == wxOK)
+            vcashApp.controller.rescanWallet();
+    }
+}
+
 DumpHDSeedDlg::DumpHDSeedDlg(VcashApp &vcashApp, wxWindow &parent)
         : wxDialog(&parent, wxID_ANY, wxT("Show HD seed")) {
 
@@ -175,14 +193,15 @@ DumpHDSeedDlg::DumpHDSeedDlg(VcashApp &vcashApp, wxWindow &parent)
 
 
     wxBoxSizer *hbox = new wxBoxSizer(wxVERTICAL);
-    int border = 5;
+    int border = 10;
     if(!seed.empty()) {
         hbox->Add(new wxStaticText(this, wxID_ANY, warning), 0, wxALL, border);
         seedCtrl->SetToolTip(warning);
     }
 
     hbox->Add(seedCtrl, 1, wxALL, border);
-    hbox->Add(closeButton);
+    hbox->Add(closeButton, wxSizerFlags().Center());
+    hbox->AddSpacer(border);
 
     SetSizerAndFit(hbox);
 
@@ -204,7 +223,7 @@ DumpHDSeedDlg::DumpHDSeedDlg(VcashApp &vcashApp, wxWindow &parent)
 
 SettingsMenu::SettingsMenu(VcashApp &vcashApp, wxWindow &parent) : wxMenu() {
     enum PopupMenu {
-        About, ChangePass, Encrypt, Lock, Seed, Unlock
+        About, ChangePass, Encrypt, Lock, Seed, Unlock, Rescan
     };
 
     bool loaded = vcashApp.controller.isWalletLoaded();
@@ -225,6 +244,7 @@ SettingsMenu::SettingsMenu(VcashApp &vcashApp, wxWindow &parent) : wxMenu() {
         else if(vcashApp.controller.isWalletCrypted()) {
             submenu->Append(Lock, wxT("&Lock"));
         }
+        submenu->Append(Rescan, wxT("&Rescan"));
         AppendSubMenu(submenu, wxT("Wallet"));
         AppendSeparator();
     }
@@ -254,8 +274,12 @@ SettingsMenu::SettingsMenu(VcashApp &vcashApp, wxWindow &parent) : wxMenu() {
             WalletActions::unlock(vcashApp, parent);
             break;
         }
+        case Rescan: {
+            WalletActions::rescan(vcashApp, parent);
+            break;
+        }
         case About: {
-            wxMessageBox(wxT("A wxWidgets wallet for Vcash.\nCopyright (C) krypt.Richards@gmail.com."), wxT("About wxVcash"),
+            wxMessageBox(wxT("A wxWidgets wallet for Vcash.\nCopyright (C) The Vcash Developers."), wxT("About wxVcash"),
                          wxOK | wxICON_INFORMATION, &parent);
             break;
         }

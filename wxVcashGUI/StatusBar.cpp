@@ -1,8 +1,8 @@
 /******************************************************************************
- * wxVcashGUI: a GUI for Vcash, the decentralized currency 
- *             for the internet (https://v.cash/).
+ * wxVcashGUI: a GUI for Vcash, a decentralized currency 
+ *             for the internet (https://vcash.info).
  *
- * Copyright (c) kryptRichards (krypt.Richards@gmail.com)
+ * Copyright (c) The Vcash Developers
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -29,10 +29,9 @@ using namespace wxGUI;
 StatusBar::StatusBar(VcashApp &vcashApp, wxWindow &parent, wxFrame &toolsFrame)
         : wxStatusBar(&parent) {
 
-    unsigned long numFields = fieldsWidths.size();
     int ws[numFields];
     for (int i = 0; i < numFields; i++)
-        ws[i] = fieldsWidths.at(static_cast<Pane>(i));
+        ws[i] = fieldsWidths[i].second;
     SetFieldsCount(numFields, ws);
 
     StatusBarImage *toolsImg = new StatusBarImage(*this, Resources::tools);
@@ -94,4 +93,3 @@ StatusBar::StatusBar(VcashApp &vcashApp, wxWindow &parent, wxFrame &toolsFrame)
 void StatusBar::SetMessage(wxString msg) {
     SetStatusText(msg, Msg);
 }
-

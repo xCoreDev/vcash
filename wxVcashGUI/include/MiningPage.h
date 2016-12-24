@@ -1,8 +1,8 @@
 /******************************************************************************
- * wxVcashGUI: a GUI for Vcash, the decentralized currency 
- *             for the internet (https://v.cash/).
+ * wxVcashGUI: a GUI for Vcash, a decentralized currency 
+ *             for the internet (https://vcash.info).
  *
- * Copyright (c) kryptRichards (krypt.Richards@gmail.com)
+ * Copyright (c) The Vcash Developers
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -18,6 +18,7 @@
 #ifndef WX_PRECOMP
 #include <wx/button.h>
 #include <wx/panel.h>
+#include <wx/stattext.h>
 #include <wx/window.h>
 
 #endif
@@ -36,8 +37,11 @@ namespace wxGUI {
 
         void toogleMining();
 
+        void setHash(const std::string &hashRate);
+
     private:
         wxButton *mining;
+        wxStaticText *hash;
         bool isMining;
     };
 }

@@ -10,7 +10,8 @@ if (wxWidgets_FOUND)
 		add_definitions("-std=c++11 -D_UNICODE -D__WXGTK__")
 	endif()
 
-	set(SOURCE_FILES AccountPage.cpp AddressesPage.cpp ConsolePage.cpp Controller.cpp EntryDialog.cpp
+	set(SOURCE_FILES AccountPage.cpp AddressesPage.cpp BlockExplorer.cpp ConsolePage.cpp Controller.cpp
+		    EntryDialog.cpp
         HistoryPage.cpp MiningPage.cpp  Resources.cpp StatisticsPage.cpp StatusBarImage.cpp
         StatusBarWallet.cpp ToolsFrame.cpp ToolsPanel.cpp TransferPage.cpp VcashApp.cpp MainFrame.cpp
         MainPanel.cpp StatusBar.cpp View.cpp OnPairsEvent.cpp WalletActions.cpp)

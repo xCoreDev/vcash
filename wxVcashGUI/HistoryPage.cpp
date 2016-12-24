@@ -1,8 +1,8 @@
 /******************************************************************************
- * wxVcashGUI: a GUI for Vcash, the decentralized currency 
- *             for the internet (https://v.cash/).
+ * wxVcashGUI: a GUI for Vcash, a decentralized currency 
+ *             for the internet (https://vcash.info).
  *
- * Copyright (c) kryptRichards (krypt.Richards@gmail.com)
+ * Copyright (c) The Vcash Developers
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -19,6 +19,7 @@
 #include <wx/menu.h>
 #endif
 
+#include "BlockExplorer.h"
 #include "HistoryPage.h"
 #include "Resources.h"
 #include "VcashApp.h"
@@ -124,7 +125,12 @@ HistoryPage::HistoryPage(VcashApp &vcashApp, wxWindow &parent)
 
     listCtrl->InsertColumn(Icon, wxT(""), wxLIST_FORMAT_CENTER, 30);
     listCtrl->InsertColumn(Date, wxT("Date"), wxLIST_FORMAT_LEFT, 135);
-    listCtrl->InsertColumn(Status, wxT("Status"), wxLIST_FORMAT_LEFT, 125);
+	#if defined (__WXMSW__)
+	#define STATUS_WIDTH 115
+	#else
+	#define STATUS_WIDTH 125
+	#endif	
+    listCtrl->InsertColumn(Status, wxT("Status"), wxLIST_FORMAT_LEFT, STATUS_WIDTH);
     listCtrl->InsertColumn(Amount, wxT("Amount"), wxLIST_FORMAT_LEFT, 130);
 
     wxSizer *pageSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -160,10 +166,15 @@ HistoryPage::HistoryPage(VcashApp &vcashApp, wxWindow &parent)
 
         if (index >= 0) {
             enum PopupMenu {
-                BlockExplorer, Copy, Info, Lock
+                BlockExperts, VcashExplorer, Copy, Info, Lock
             };
+
+            wxMenu *explorers = new wxMenu();;
+            explorers->Append(BlockExperts, wxT("Block Experts"));
+            explorers->Append(VcashExplorer, wxT("Vcash Explorer"));
+
             wxMenu popupMenu;
-            popupMenu.Append(BlockExplorer, wxT("&Block explorer"));
+            popupMenu.AppendSubMenu(explorers, wxT("&Block explorer"));
             popupMenu.Append(Copy, wxT("&Copy"));
             popupMenu.Append(Info, wxT("&Information"));
             popupMenu.Append(Lock, wxT("&Lock"));
@@ -173,24 +184,27 @@ HistoryPage::HistoryPage(VcashApp &vcashApp, wxWindow &parent)
                                    wxLIST_STATE_FOCUSED | wxLIST_STATE_SELECTED);
 
             switch (select) {
-                case BlockExplorer: {
+                case BlockExperts: {
                     std::string txid = *((std::string *) listCtrl->GetItemData(index));
-                    std::string url = "https://www.blockexperts.com/xvc/tx/" + txid;
-                    wxLaunchDefaultBrowser(url);
+                    wxLaunchDefaultBrowser(BlockExperts::transactionURL(txid));
+                    break;
+                }
+
+                case VcashExplorer: {
+                    std::string txid = *((std::string *) listCtrl->GetItemData(index));
+                    wxLaunchDefaultBrowser(VcashExplorer::transactionURL(txid));
                     break;
                 }
 
                 case Copy: {
                     std::string txid = *((std::string *) listCtrl->GetItemData(index));
 
-                    auto clipboard = wxTheClipboard;
+                    if (wxTheClipboard->Open()) {
+                        // wxTheClipboard->Clear(); doesn't work on Windows
+                        wxTheClipboard->SetData(new wxTextDataObject(txid));
+                        // wxTheClipboard->Flush();
 
-                    if (clipboard->Open()) {
-                        clipboard->Clear();
-                        clipboard->SetData(new wxTextDataObject(txid));
-                        clipboard->Flush();
-
-                        clipboard->Close();
+                        wxTheClipboard->Close();
                     }
                     break;
                 }
