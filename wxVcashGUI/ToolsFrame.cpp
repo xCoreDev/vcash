@@ -17,32 +17,50 @@
 #endif
 
 #include "AddressesPage.h"
+#include "MainFrame.h"
 #include "Resources.h"
+#include "StatusBar.h"
 #include "ToolsFrame.h"
 #include "ToolsPanel.h"
-#include <VcashApp.h>
+#include "VcashApp.h"
 
 #ifdef __WXGTK__
-#define STYLE wxFRAME_FLOAT_ON_PARENT
+#define STYLE (wxFRAME_FLOAT_ON_PARENT | wxFRAME_NO_TASKBAR)
 #else
-#define STYLE (wxFRAME_FLOAT_ON_PARENT | wxRESIZE_BORDER)
+#define STYLE (wxFRAME_FLOAT_ON_PARENT | wxFRAME_NO_TASKBAR | wxRESIZE_BORDER)
 #endif
 
 using namespace wxGUI;
 
 ToolsFrame::ToolsFrame(VcashApp &vcashApp, wxWindow &parent)
-    : wxFrame(&parent, wxID_ANY, wxT("ToolsFrame"), wxDefaultPosition, wxDefaultSize, STYLE) {
+    : parent(parent)
+    , vcashApp(vcashApp)
+    , wxFrame(&parent, wxID_ANY, wxT("ToolsFrame"), wxDefaultPosition, wxDefaultSize, STYLE) {
 
-SetIcon(Resources::vcashIcon);
+    SetIcon(Resources::vcashIcon);
 
-ToolsPanel *toolsPanel = new ToolsPanel(vcashApp, *this);
+    ToolsPanel *toolsPanel = new ToolsPanel(vcashApp, *this);
 
-vcashApp.view.toolsFrame = this;
+    vcashApp.view.toolsFrame = this;
 
-wxSizer *sizerV = new wxBoxSizer(wxVERTICAL);
-sizerV->Add(toolsPanel
-           , 1        // make horizontally stretchable
-           , wxEXPAND // make it fill parent
-);
-SetSizerAndFit(sizerV);
+    wxSizer *sizerV = new wxBoxSizer(wxVERTICAL);
+    sizerV->Add(toolsPanel
+               , 1        // make horizontally stretchable
+               , wxEXPAND // make it fill parent
+    );
+    SetSizerAndFit(sizerV);
+
+    Bind(wxEVT_SET_FOCUS, [toolsPanel](wxFocusEvent &ev) {
+       toolsPanel->SetFocus();
+    });
+}
+
+void ToolsFrame::updatePosition() {
+    if(parent.IsShown()) {
+        wxRect rect;
+        auto statusBar = vcashApp.view.statusBar;
+        statusBar->GetFieldRect(StatusBar::Tools, rect);
+        Move(statusBar->ClientToScreen(
+                wxPoint(rect.x + rect.width / 2, rect.y + rect.height)));
+    }
 }

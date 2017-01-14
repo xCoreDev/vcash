@@ -22,10 +22,14 @@
 
 using namespace wxGUI;
 
-ConsolePage::ConsolePage(VcashApp &vcashApp, wxWindow &parent) : wxPanel(&parent) {
+ConsolePage::ConsolePage(VcashApp &vcashApp, wxWindow &parent)
+        : consecutiveEnters(0)
+        , wasDoubleClick(false)
+        , focusFromCommand(false)
+        , wxPanel(&parent) {
     vcashApp.view.consolePage = this;
 
-    int cols = 1, vgap = 10, hgap = 15;
+    const int cols = 1, vgap = 10, hgap = 15;
     wxFlexGridSizer *fgs = new wxFlexGridSizer(cols, vgap, hgap);
 
     output = new wxRichTextCtrl(
@@ -33,7 +37,11 @@ ConsolePage::ConsolePage(VcashApp &vcashApp, wxWindow &parent) : wxPanel(&parent
             wxDefaultSize, wxVSCROLL | wxBORDER_NONE | wxWANTS_CHARS);
 
 
-    wxFont fixedFont = wxFont(10, wxFONTFAMILY_TELETYPE, wxNORMAL, wxNORMAL);
+#if defined (__WXMSW__)
+    wxFont fixedFont = wxFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL, false, wxT("Consolas"));
+#else
+    wxFont fixedFont = wxFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
+#endif
     output->SetFont(fixedFont);
 
     command = new wxTextCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
@@ -43,6 +51,11 @@ ConsolePage::ConsolePage(VcashApp &vcashApp, wxWindow &parent) : wxPanel(&parent
     output->SetToolTip(wxT("Results of invoked RPC commands"));
     command->SetToolTip(wxT("RPC command to invoke"));
     clear->SetToolTip(wxT("Clear all previous output"));
+
+    wxArrayString wxRpcCommands;
+    for(auto rpc : rpcCommands)
+        wxRpcCommands.Add(wxString(rpc));
+    command->AutoComplete(wxRpcCommands);
 
     wxBoxSizer *row = new wxBoxSizer(wxHORIZONTAL);
     row->Add(command, 1, wxALL | wxEXPAND);
@@ -59,29 +72,66 @@ ConsolePage::ConsolePage(VcashApp &vcashApp, wxWindow &parent) : wxPanel(&parent
     SetSizerAndFit(hbox);
     Centre();
 
-    command->Bind(wxEVT_TEXT_ENTER, [this, &vcashApp](wxCommandEvent &) {
+    auto onEnter = [this, &vcashApp](wxEvent &ev) {
         std::string cmd = command->GetValue().ToStdString();
-        vcashApp.controller.onConsoleCommandEntered(cmd);
-    });
 
+        bool execute = consecutiveEnters > 1;
 
-    command->Bind(wxEVT_KEY_DOWN, [this](wxKeyEvent &ev) {
+        if(!execute) {
+            // check if cmd is a prefix of any command
+            int isPrefix = 0;
+            for(auto rpc : rpcCommands) {
+                auto res = std::mismatch(cmd.begin(), cmd.end(), rpc.begin());
+                if(res.first == cmd.end()) {
+                    isPrefix++;
+                }
+            }
+#if defined(__WXMSW__)
+            execute = isPrefix <= 1;
+#else
+            if((isPrefix==1) && (rpcCommands.find(cmd) != rpcCommands.end()))
+                execute = true;
+            else
+                execute = isPrefix <= 0;
+#endif
+        }
+
+        if(execute) {
+            // execute rpc command
+            vcashApp.controller.onConsoleCommandEntered(cmd);
+            command->Clear();
+            consecutiveEnters = 0;
+        } else {
+            // select word from list
+#if defined(__WXMSW__)
+            //MSVC
+            command->SelectNone();
+            command->SetInsertionPointEnd();
+#endif
+            ev.Skip();
+        }
+    };
+
+    command->Bind(wxEVT_KEY_DOWN, [this, onEnter](wxKeyEvent &ev) {
+        if(ev.GetKeyCode() == WXK_RETURN)
+            consecutiveEnters++;
+        else
+            consecutiveEnters = 0;
         switch (ev.GetKeyCode()) {
-            case WXK_UP:
-                output->MoveUp();
-                output->ScrollIntoView(output->GetCaretPosition(),WXK_UP);
+            case WXK_RETURN:
+                onEnter(ev);
                 break;
-            case WXK_DOWN:
-                output->MoveDown();
-                output->ScrollIntoView(output->GetCaretPosition(),WXK_UP);
-                break;
-            case WXK_HOME:
-                output->MoveHome();
-                output->ScrollIntoView(output->GetCaretPosition(),WXK_HOME);
-                break;
-            case WXK_END:
-                output->MoveEnd();
-                output->ScrollIntoView(output->GetCaretPosition(),WXK_END);
+            case WXK_ESCAPE:
+                consecutiveEnters++;
+                long from, to;
+                command->GetSelection(&from, &to);
+                if(from!=to)
+                    command->Remove(from, to);
+#if defined(__WXMSW__)
+                else
+                    command->Clear();
+#endif
+                ev.Skip();
                 break;
             case WXK_PAGEUP:
                 output->PageUp();
@@ -96,8 +146,44 @@ ConsolePage::ConsolePage(VcashApp &vcashApp, wxWindow &parent) : wxPanel(&parent
         }
     });
 
-    output->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent &) {
+    command->Bind(wxEVT_KILL_FOCUS, [this](wxFocusEvent &ev) {
+       focusFromCommand = true;
+        ev.Skip();
+    });
+
+    output->Bind(wxEVT_SET_FOCUS, [this, &parent](wxFocusEvent &ev) {
+#if defined(__WXMSW__)
         command->SetFocus();
+#else
+        if(focusFromCommand)
+            parent.SetFocus();
+        else
+            command->SetFocus();
+#endif
+        focusFromCommand = false;
+    });
+
+    auto onClick = [this, &vcashApp](wxMouseEvent &ev) {
+        wxTextCoord col , row;
+        auto result = output->HitTest(ev.GetPosition(), &col, &row);
+        if(result != wxTE_HT_BELOW  && result != wxTE_HT_BEYOND) {
+            wxString line = output->GetLineText(row);
+            command->SetValue(line);
+            command->SetInsertionPointEnd();
+        }
+        ev.Skip();
+    };
+
+    output->Bind(wxEVT_LEFT_DCLICK, [this, onClick, onEnter](wxMouseEvent &ev) {
+        onClick(ev);
+        onEnter(ev);
+        wasDoubleClick = true;
+    });
+
+    output->Bind(wxEVT_LEFT_UP, [this, onClick](wxMouseEvent &ev) {
+        if(!wasDoubleClick)
+            onClick(ev);
+        wasDoubleClick = false;
     });
 
     clear->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
@@ -121,3 +207,23 @@ void ConsolePage::appendToConsole(const std::string &text, bool bold) {
 
     output->ShowPosition(output->GetLastPosition());
 }
+
+const std::set<std::string> ConsolePage::rpcCommands =
+    { "backupwallet"
+    , "chainblender", "checkwallet"
+    , "databaseenv", "databasefind", "databasestore"
+    , "dumpwalletseed", "dumpprivkey", "dumpwallet"
+    , "encryptwallet"
+    , "getaccount", "getaccountaddress", "getbalance", "getblock", "getblockcount"
+    , "getblockhash", "getblocktemplate", "getdifficulty", "getincentiveinfo"
+    , "getinfo"
+    , "incentive", "importprivkey"
+    , "listsinceblock", "listreceivedbyaccount", "listreceivedbyaddress", "listtransactions"
+    , "getmininginfo", "getnetworkhashps", "getnetworkinfo"
+    , "getnewaddress", "getpeerinfo", "getrawmempool", "getrawtransaction", "gettransaction"
+    , "repairwallet"
+    , "sendfrom", "sendmany", "sendtoaddress", "settxfee", "submitblock"
+    , "validateaddress"
+    , "walletdenominate", "walletlock", "walletpassphrase", "walletpassphrasechange"
+    , "ztlock"
+    };

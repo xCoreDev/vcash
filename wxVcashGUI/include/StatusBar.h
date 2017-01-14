@@ -16,6 +16,7 @@
 #include <wx/wxprec.h>
 
 #ifndef WX_PRECOMP
+#include <wx/activityindicator.h>
 #include <wx/frame.h>
 #include <wx/statbmp.h>
 #include <wx/statusbr.h>
@@ -26,6 +27,7 @@
 namespace wxGUI {
 
     class VcashApp;
+    class StatusBarWallet;
 
     class StatusBar : public wxStatusBar {
     public:
@@ -38,10 +40,14 @@ namespace wxGUI {
                                                               {Msg,      -1},
                                                               {Settings, 25},
                                                               {Locked,   40}};
+        StatusBarWallet *statusBarWallet;
+        wxActivityIndicator *activityIndicator;
     public:
         StatusBar(VcashApp &vcashApp, wxWindow &parent, wxFrame &toolsFrame);
 
-        void SetMessage(wxString msg);
+        void setMessage(wxString msg);
+
+        void setWorking(bool working);
     };
 }
 

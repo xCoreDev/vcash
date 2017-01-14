@@ -17,23 +17,35 @@
 
 #ifndef WX_PRECOMP
 #include <wx/app.h>
+#include <wx/cmdline.h>
+#include <wx/snglinst.h>
 #endif
 
 #include "Controller.h"
 #include "View.h"
 
-namespace wxGUI {
+#include <map>
+#include <string>
 
+namespace wxGUI {
     class VcashApp : public wxApp {
     public:
         VcashApp();
+        void exit();
+        bool canExit();
 
         Controller controller;
         View view;
+        bool taskBarIconEnabled;
 
     private:
         bool OnInit();
         int OnExit();
+        void OnInitCmdLine(wxCmdLineParser &parser);
+        bool OnCmdLineParsed(wxCmdLineParser &parser);
+        std::map<std::string, std::string> args;
+        static const wxCmdLineEntryDesc cmdLineDesc[];
+        wxSingleInstanceChecker singleInstanceChecker;
     };
 }
 

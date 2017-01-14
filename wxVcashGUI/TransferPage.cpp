@@ -23,15 +23,16 @@
 
 #include "TransferPage.h"
 #include "VcashApp.h"
+#include "wxStack.h"
 
 using namespace wxGUI;
 
 TransferPage::TransferPage(VcashApp &vcashApp, wxWindow &parent) : wxPanel(&parent) {
-    int vcashSupply = 30700000;
+    double vcashMaxSupply = wxStack::maxMoneySupply / wxStack::oneVcash;
     int decimals = 6;
     wxFloatingPointValidator<double>
             payValidator(decimals, nullptr, wxNUM_VAL_ZERO_AS_BLANK | wxNUM_VAL_NO_TRAILING_ZEROES);
-    payValidator.SetRange(0,vcashSupply);
+    payValidator.SetRange(0, vcashMaxSupply);
 
     wxTextValidator toValidator(wxFILTER_ALPHANUMERIC);
 
@@ -54,7 +55,7 @@ TransferPage::TransferPage(VcashApp &vcashApp, wxWindow &parent) : wxPanel(&pare
     payCtrl->SetHint(wxT("0.0"));
     toCtrl->SetHint(wxT("destination address"));
 
-    int cols = 2, vgap = 5, hgap = 10;
+    const int cols = 2, vgap = 5, hgap = 10, border = 20;
     wxFlexGridSizer *fgs = new wxFlexGridSizer(cols, vgap, hgap);
     fgs->Add(new wxStaticText(this, wxID_ANY, wxT("Pay:")), wxSizerFlags().Right());
     fgs->Add(payCtrl, 1, wxRIGHT | wxEXPAND, 165);
@@ -68,9 +69,9 @@ TransferPage::TransferPage(VcashApp &vcashApp, wxWindow &parent) : wxPanel(&pare
 
     wxSizer *sizerH = new wxBoxSizer(wxHORIZONTAL);
     sizerH->Add(sizerV, 1, wxALL | wxEXPAND, 0);
-    sizerH->Add(send, wxSizerFlags().Right());
+    sizerH->Add(send, wxSizerFlags());
 
-    fgs->Add(0, 20);
+    fgs->Add(0, border);
     fgs->Add(0, 0);
 
     fgs->Add(0, 0);
@@ -78,7 +79,7 @@ TransferPage::TransferPage(VcashApp &vcashApp, wxWindow &parent) : wxPanel(&pare
 
     // Add a border
     wxSizer *pageSizer = new wxBoxSizer(wxVERTICAL);
-    pageSizer->Add(fgs, 1, wxALL | wxEXPAND, 20);
+    pageSizer->Add(fgs, 1, wxALL | wxEXPAND, border);
 
     SetSizerAndFit(pageSizer);
 

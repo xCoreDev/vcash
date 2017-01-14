@@ -10,12 +10,17 @@
  *
  ******************************************************************************/
 
+#include <wx/wxprec.h>
+
+#ifndef WX_PRECOMP
+#include <wx/graphics.h>
+#endif
+
 #include "Resources.h"
 
 #include "resources/greenR16.cpp"
 #include "resources/redR16.cpp"
 #include "resources/yellowR16.cpp"
-#include "resources/connecting22.cpp"
 
 #if defined (__WXGTK__)
 #include "resources/empty22.cpp"
@@ -53,8 +58,6 @@ void Resources::init() {
     greenR = wxBITMAP_PNG_FROM_DATA(greenR16);
     yellowR = wxBITMAP_PNG_FROM_DATA(yellowR16);
 
-
-
     #if defined (__WXGTK__)
     empty = wxBITMAP_PNG_FROM_DATA(empty22);
     locked = wxBITMAP_PNG_FROM_DATA(locked22);
@@ -77,6 +80,18 @@ void Resources::init() {
 
     wxBitmap bm = wxBITMAP_PNG_FROM_DATA(vcash);
     vcashIcon.CopyFromBitmap(bm);
+
+    // Make a 64x64 copy of vcashIcon
+    int dimension = 64;
+    vcashImage64.Create(vcashIcon.GetWidth(), vcashIcon.GetHeight());
+    vcashImage64.InitAlpha();
+    unsigned char *alpha = vcashImage64.GetAlpha();
+    memset(alpha, wxIMAGE_ALPHA_TRANSPARENT, vcashImage64.GetWidth()*vcashImage64.GetHeight());
+
+    wxGraphicsContext *gc = wxGraphicsContext::Create(vcashImage64);
+    gc->DrawIcon(vcashIcon, 0, 0, vcashIcon.GetWidth(), vcashIcon.GetHeight());
+    delete gc;
+    vcashImage64.Rescale(dimension, dimension);
 }
 
 wxBitmap Resources::redR;
@@ -96,3 +111,5 @@ wxBitmap Resources::tools;
 wxBitmap Resources::unlocked;
 
 wxIcon Resources::vcashIcon;
+
+wxImage Resources::vcashImage64;

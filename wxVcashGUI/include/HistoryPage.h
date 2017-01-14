@@ -21,6 +21,8 @@
 #include <wx/window.h>
 #endif
 
+#include "StatisticsPage.h"
+
 #include <ctime>
 #include <map>
 #include <vector>
@@ -29,7 +31,7 @@ namespace wxGUI {
 
     class VcashApp;
 
-    enum BulletColor {
+    enum class BulletColor {
         Red, Green, Yellow
     };
 
@@ -47,7 +49,7 @@ namespace wxGUI {
     private:
         enum Column {
             Icon, Date, Status, Amount
-        };;
+        };
 
         wxListCtrl *listCtrl;
 

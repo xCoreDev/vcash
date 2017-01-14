@@ -39,31 +39,33 @@ StatisticsPage::StatisticsPage(VcashApp &vcashApp, wxWindow &parent) : wxPanel(&
     difficulty->SetToolTip(wxT("Network difficulty"));
     supply->SetToolTip(wxT("Current money supply"));
 
-    int cols = 2, vgap = 0, hgap = 50;
+    const int cols = 2, vgap = 5, hgap = 20;
     wxSizer *gridSizer = new wxGridSizer(cols, vgap, hgap);
 
-    gridSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Network TCP:")));
-    gridSizer->Add(TCP);
-    gridSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Network UDP:")));
-    gridSizer->Add(UDP);
-    gridSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Blocks Estimated:")));
-    gridSizer->Add(estimated);
-    gridSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Blocks Total:")));
-    gridSizer->Add(total);
-    gridSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Difficulty:")));
-    gridSizer->Add(difficulty);
-    gridSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Money Supply:")));
-    gridSizer->Add(supply);
+    gridSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Network TCP:")), wxSizerFlags().Right());
+    gridSizer->Add(TCP, wxSizerFlags().Left());
+    gridSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Network UDP:")), wxSizerFlags().Right());
+    gridSizer->Add(UDP, wxSizerFlags().Left());
+    gridSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Blocks Estimated:")), wxSizerFlags().Right());
+    gridSizer->Add(estimated, wxSizerFlags().Left());
+    gridSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Blocks Total:")), wxSizerFlags().Right());
+    gridSizer->Add(total, wxSizerFlags().Left());
+    gridSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Difficulty:")), wxSizerFlags().Right());
+    gridSizer->Add(difficulty, wxSizerFlags().Left());
+    gridSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Money Supply:")), wxSizerFlags().Right());
+    gridSizer->Add(supply, wxSizerFlags().Left());
 
-    // fill bottom of page
-    wxSizer *sizerH = new wxBoxSizer(wxHORIZONTAL);
-    sizerH->Add(gridSizer
-            , 0      // make vertically stretchable
-            , wxALL  // make border all around
-            , 20     // border size
-    );
+    wxSizer *sizerV = new wxBoxSizer(wxVERTICAL);
+    sizerV->AddSpacer(vgap);
+    sizerV->Add(gridSizer, wxSizerFlags().Border(wxALL, hgap).Center());
 
-    SetSizerAndFit(sizerH);
+    SetSizerAndFit(sizerV);
+
+    // This windows doesn't accept focus as it only shows information
+    Bind(wxEVT_SET_FOCUS, [&parent](wxFocusEvent &ev) {
+        parent.SetFocus();
+        ev.Skip();
+    });
 }
 
 void StatisticsPage::setTCP(const std::string &tcp) {

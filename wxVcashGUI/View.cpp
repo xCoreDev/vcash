@@ -20,14 +20,17 @@
 #include "AccountPage.h"
 #include "AddressesPage.h"
 #include "ConsolePage.h"
-#include "EntryDialog.h"
+#include "ContextMenu.h"
 #include "HistoryPage.h"
 #include "MainFrame.h"
 #include "MiningPage.h"
 #include "Resources.h"
 #include "StatusBarWallet.h"
 #include "StatusBar.h"
+#include "TaskBarIcon.h"
+#include "ToolsFrame.h"
 #include "ToolsPanel.h"
+#include "VcashApp.h"
 #include "View.h"
 #include "WalletActions.h"
 
@@ -66,7 +69,11 @@ WalletStatus View::getWalletStatus() {
 // Status bar
 
 void View::setStatusBarMessage(const std::string &msg) {
-    statusBar->SetMessage(wxString(msg));
+    statusBar->setMessage(wxString(msg));
+}
+
+void View::setStatusBarWorking(bool working) {
+    statusBar->setWorking(working);
 }
 
 // Mining state
@@ -151,12 +158,36 @@ void View::messageBox(const std::string &msg, const std::string &title, long sty
 
 void View::notificationBox(const std::string &msg, const std::string &title) {
     wxNotificationMessage *notificationMessage = new wxNotificationMessage(wxString(title), wxString(msg), mainFrame);
-	#if (wxMAJOR_VERSION >= 3) && (wxMINOR_VERSION >= 1)
-	notificationMessage->SetIcon(Resources::vcashIcon);
-	#endif
+#if (wxMAJOR_VERSION >= 3) && (wxMINOR_VERSION >= 1)
+    wxIcon icon;
+    icon.CopyFromBitmap(wxBitmap(Resources::vcashImage64));
+    notificationMessage->SetIcon(icon);
+    notificationMessage->SetParent(mainFrame);
+#if defined (__WXMSW__)
+    wxNotificationMessage::UseTaskBarIcon(taskBarIcon);
+#endif
+#endif
     notificationMessage->Show(2);
 }
 
-std::pair<bool, std::string> View::restoreHDSeed() {
-    return WalletActions::restoreHDSeed(*mainFrame);
+std::pair<bool, std::string> View::restoreHDSeed(VcashApp &vcashApp) {
+    return WalletActions::restoreHDSeed(vcashApp.controller, *mainFrame);
+}
+
+void View::showContextMenu(VcashApp &vcashApp, bool atClickPosition) {
+    wxPoint p = atClickPosition ? wxDefaultPosition : walletLock->GetPosition() +  statusBar->GetPosition();
+    new ContextMenu(vcashApp, *mainFrame, p);
+}
+
+void View::showHideToolsFrame(bool showAlso) {
+    if(toolsFrame->IsShown())
+        toolsFrame->Hide();
+    else if (showAlso) {
+        toolsFrame->updatePosition();
+        toolsFrame->Iconize(false); // restore the window if minimized
+        toolsFrame->Restore();      // restore the window if minimized
+        toolsFrame->Show();
+        // toolsFrame->updatePosition();
+        toolsFrame->SetFocus();
+    }
 }

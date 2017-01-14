@@ -32,6 +32,10 @@ namespace wxGUI {
         StatusBarImage(wxWindow &parent, wxBitmap &bitmap, std::function<void(wxMouseEvent &)> onClickCode);
 
         void bindOnLeftClick(std::function<void(wxMouseEvent &)> onClickCode);
+
+        void bindOnRightClick(std::function<void(wxMouseEvent &)> onClickCode);
+
+        void bindOnClick(std::function<void(wxMouseEvent &)> onClickCode);
     };
 }
 

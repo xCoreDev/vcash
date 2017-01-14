@@ -36,20 +36,23 @@ namespace wxGUI {
 
         EntryDialog( wxWindow &parent, const wxString &title
                    , const std::vector<Entry> &entries
-                   , std::function<bool (const std::vector<wxString> &)> validate);
+                   , std::function<bool(EntryDialog &dlg)> validate);
 
         std::vector<wxString> getValues();
 
         static std::pair<int,std::vector<wxString>> run(wxWindow &parent
                 , const wxString &title
                 , const std::vector<Entry> &entries
-                , std::function<bool (const std::vector<wxString> &)> validate);
+                , std::function<bool(EntryDialog &dlg)> validate);
+
+        bool validate(bool cond, wxString msg);
 
     private:
         std::vector<wxTextCtrl*> textCtrls;
         std::vector<wxString> values;
+        wxString title;
 
-        std::function<bool (const std::vector<wxString> &)> validate;
+        std::function<bool(EntryDialog &dlg)> validatef;
 
         void onKeyPressed(wxKeyEvent &ev);
 

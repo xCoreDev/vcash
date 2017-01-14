@@ -27,3 +27,12 @@ StatusBarImage::StatusBarImage(wxWindow &parent, wxBitmap &bitmap,
 void StatusBarImage::bindOnLeftClick(std::function<void(wxMouseEvent &)> onClickCode) {
     Bind(wxEVT_LEFT_UP, onClickCode);
 }
+
+void StatusBarImage::bindOnRightClick(std::function<void(wxMouseEvent &)> onClickCode) {
+    Bind(wxEVT_RIGHT_UP, onClickCode);
+}
+
+void StatusBarImage::bindOnClick(std::function<void(wxMouseEvent &)> onClickCode) {
+    Bind(wxEVT_LEFT_UP, onClickCode);
+    Bind(wxEVT_RIGHT_UP, onClickCode);
+}

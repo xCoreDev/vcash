@@ -19,6 +19,7 @@
 #endif
 
 #include "EntryDialog.h"
+#include "MainFrame.h"
 #include "VcashApp.h"
 #include "WalletActions.h"
 
@@ -26,46 +27,54 @@ using namespace wxGUI;
 
 bool WalletActions::encrypt(VcashApp &vcashApp, wxWindow &parent) {
     wxString title = wxT("Encrypt wallet");
-    int result = wxMessageBox(
-            wxT("Encrypting your wallet keeps it safe in case it is lost or stolen.\n"
-                "Do you want to encrypt your wallet?"),
-            title, wxYES_NO | wxICON_QUESTION | wxYES_DEFAULT, &parent);
-    if(result == wxYES) {
+
+    bool result = false;
+    if(vcashApp.controller.isWalletCrypted()) {
         wxMessageBox(
-                wxT("Do a safe back up of your password. Once encrypted, you \n"
-                    "will not be able to use your funds without the password."),
-                title, wxOK | wxICON_INFORMATION, &parent);
+                wxT("Cannot encrypt wallet. Wallet is already encrypted.\n"
+                    "Please, try to change password intead."),
+                title, wxOK | wxICON_EXCLAMATION, &parent);
+    } else {
+        int res = wxMessageBox(
+                wxT("Encrypting your wallet keeps it safe in case it is lost or stolen.\n"
+                    "Do you want to encrypt your wallet?"),
+                title, wxYES_NO | wxICON_QUESTION | wxYES_DEFAULT, &parent);
+        if(res == wxYES) {
+            wxMessageBox(
+                    wxT("Do a safe back up of your password. Once encrypted, you\n"
+                        "will not be able to use your funds without the password."),
+                    title, wxOK | wxICON_INFORMATION, &parent);
 
-        auto pair = EntryDialog::run( parent, title
-                , { { wxT("Password"), wxTE_PASSWORD, wxT("Enter your password"), wxDefaultSize }
-                  , { wxT("Confirm"), wxTE_PASSWORD, wxT("Reenter your password"), wxDefaultSize }
-                  }
-                , [](std::vector<wxString> values){ return values[0] == values[1]; }
-                );
-
-        switch(pair.first) {
-            case wxID_CANCEL:
-                break;
-            case wxID_OK:
-                vcashApp.controller.encryptWallet(
-                        pair.second[0].ToStdString());
-                break;
-            default:
-                break;
+            auto pair = EntryDialog::run( parent, title
+                    , { { wxT("Password"), wxTE_PASSWORD, wxT("Enter your password"), wxDefaultSize }
+                      , { wxT("Confirm"), wxTE_PASSWORD, wxT("Reenter your password"), wxDefaultSize }
+                      }
+                    , [&vcashApp](EntryDialog &dlg){
+                        std::vector<wxString> values = dlg.getValues();
+                        // check that password and confirmation are the same
+                        if(!dlg.validate(values[0] == values[1]
+                                        ,wxT("Password and confirmation are different")))
+                            return false;
+                        else if(!dlg.validate(vcashApp.controller.onWalletWantEncrypt(values[0].ToStdString())
+                                             ,wxT("Encryption failed")))
+                            return false;
+                        else
+                            return true;
+                    }
+            );
+            result = pair.first == wxID_OK;
         }
     }
-    return false;
+    vcashApp.view.setWalletStatus(vcashApp.controller.getWalletStatus());
+    return result;
 }
 
 void WalletActions::dumpHDSeed(VcashApp &vcashApp, wxWindow &parent) {
-    DumpHDSeedDlg *dumpSeedDlg = new DumpHDSeedDlg(vcashApp, parent);
-    dumpSeedDlg->ShowModal();
-    dumpSeedDlg->Destroy();
+    new DumpHDSeedDlg(vcashApp, parent);
 }
 
-
-std::pair<bool, std::string> WalletActions::restoreHDSeed(wxWindow &parent) {
-    // toDo check that deterministic wallets are set on config.dat
+std::pair<bool, std::string> WalletActions::restoreHDSeed(Controller &controller, wxWindow &parent) {
+    // toDo check that deterministic wallets are set on config.dat. Seems like stack will check it
     wxString title = wxT("Create wallet");
 
     int result = wxMessageBox(
@@ -78,14 +87,18 @@ std::pair<bool, std::string> WalletActions::restoreHDSeed(wxWindow &parent) {
                 {wxT("HD seed"), wxTE_MULTILINE, wxT("Enter your hierarchical deterministic seed"), wxSize(300, 100)},
         };
 
-        auto pair = EntryDialog::run( parent, wxT("Restore wallet"), entries
-                                    , [](std::vector<wxString> values) {
-                                         return !values[0].empty();
-                                      }
-                                    );
+        auto pair = EntryDialog::run(parent, wxT("Restore wallet"), entries
+                , [&controller](EntryDialog &dlg) {
+                    std::vector<wxString> values = dlg.getValues();
+
+                    std::string seed = dlg.getValues()[0].ToStdString();
+                    bool ok = !(seed.empty())
+                              && controller.validateHDSeed(seed);
+                    return dlg.validate(ok, wxT("This is not a valid hierarchical deterministic seed."));
+                }
+        );
         if(pair.first == wxID_OK) {
             std::string seed = pair.second[0].ToStdString();
-            // toDo check that this is a valied HD seed
             return std::make_pair(true, seed);
         } else {
             wxMessageBox(
@@ -95,70 +108,97 @@ std::pair<bool, std::string> WalletActions::restoreHDSeed(wxWindow &parent) {
     }
     wxMessageBox(
             wxT("A new wallet will be generated.\n"
-                        "Wait until wallet is loaded to do a safe\n"
-                        "back up of your hierarchical deterministic seed."),
+                "Wait until wallet is loaded to do a safe\n"
+                "back up of your hierarchical deterministic seed."),
             title, wxOK | wxICON_INFORMATION, &parent);
     return std::make_pair(false, "");
 }
 
 bool WalletActions::changePassword(VcashApp &vcashApp, wxWindow &parent) {
     wxString title = wxT("Change password");
-    int result = wxMessageBox(
-            wxT("Do you want to change your wallet password?"),
-            title, wxYES_NO | wxICON_QUESTION | wxYES_DEFAULT, &parent);
-    if(result == wxYES) {
+
+    bool result = false;
+    if(!vcashApp.controller.isWalletCrypted()) {
         wxMessageBox(
-                wxT("In order to change your password, you need to provide your\n"
-                     "old password firstly.\n"
-                     "Do a safe back up of your new password. Once encrypted, you\n"
-                     "will not be able to use your funds without the password."),
-                title, wxOK | wxICON_INFORMATION, &parent);
+                wxT("Cannot change password. Wallet is not currently encrypted"),
+                title, wxOK | wxICON_EXCLAMATION, &parent);
+    } else {
+        int res = wxMessageBox(
+                wxT("Do you want to change your wallet password?"),
+                title, wxYES_NO | wxICON_QUESTION | wxYES_DEFAULT, &parent);
+        if (res == wxYES) {
+            wxMessageBox(
+                    wxT("In order to change your password, you need\n"
+                        "to provide your old password firstly.\n"
+                        "Do a safe back up of your new password. Once\n"
+                        "encrypted, you will not be able to use your\n"
+                        "funds without this password."),
+                    title, wxOK | wxICON_INFORMATION, &parent);
 
-        // lock wallet to be able to check old password
-        vcashApp.controller.walletLock();
-
-        auto pair = EntryDialog::run( parent, title
-                , { { wxT("Old password"), wxTE_PASSWORD, wxT("Enter your old password"), wxDefaultSize }
-                  , { wxT("New password"), wxTE_PASSWORD, wxT("Enter your new password"), wxDefaultSize }
-                  , { wxT("Confirm new password"), wxTE_PASSWORD, wxT("Reenter your new password"), wxDefaultSize }
-                  }
-                , [&vcashApp](std::vector<wxString> values){
-                    return vcashApp.controller.onWalletWantUnlock(values[0].ToStdString())
-                            && (values[1] == values[2]);
-                }
-        );
-
-        switch(pair.first) {
-            case wxID_CANCEL:
-                break;
-            case wxID_OK:
-                vcashApp.controller.walletChangePassword(
-                        pair.second[0].ToStdString(),
-                        pair.second[1].ToStdString());
-
-                // let wallet locked after password change
-                vcashApp.controller.walletLock();
-
-                break;
-            default:
-                break;
+            auto pair = EntryDialog::run(parent, title,
+                                         { {wxT("Old password"),         wxTE_PASSWORD, wxT("Enter your old password"),   wxDefaultSize}
+                                         , {wxT("New password"),         wxTE_PASSWORD, wxT("Enter your new password"),   wxDefaultSize}
+                                         , {wxT("Confirm new password"), wxTE_PASSWORD, wxT("Reenter your new password"), wxDefaultSize}
+                                         }, [&vcashApp](EntryDialog &dlg) {
+                        std::vector<wxString> values = dlg.getValues();
+                        // confirm new password and confirmation are the same
+                        if(!dlg.validate(values[1] == values[2]
+                                ,wxT("New password and confirmation are different")))
+                            return false;
+                        else if(!dlg.validate(vcashApp.controller.walletChangePassword(values[0].ToStdString(), values[1].ToStdString())
+                                ,wxT("Change of password failed. Maybe old password was incorrect")))
+                            return false;
+                        else
+                            return true;
+                    }
+            );
+            result = pair.first == wxID_OK;
         }
     }
-    return false;
+    vcashApp.view.setWalletStatus(vcashApp.controller.getWalletStatus());
+    return result;
+}
+
+bool WalletActions::lock(VcashApp &vcashApp, wxWindow &parent) {
+    wxString title = wxT("Lock wallet");
+
+    bool result = false;
+    if(vcashApp.controller.isWalletLocked()) {
+        wxMessageBox(
+                wxT("Cannot lock wallet. Wallet is already locked"),
+                title, wxOK | wxICON_EXCLAMATION, &parent);
+    } else {
+        result = vcashApp.controller.onWalletWantLock();
+    }
+    vcashApp.view.setWalletStatus(vcashApp.controller.getWalletStatus());
+    return result;
 }
 
 bool WalletActions::unlock(VcashApp &vcashApp, wxWindow &parent) {
-    auto pair = EntryDialog::run( parent
-                    , wxT("Unlock wallet")
-                    , { { wxT("Password"), wxTE_PASSWORD, wxT("Enter your password"), wxDefaultSize } }
-                    , [&vcashApp](std::vector<wxString> values) {
-                        bool unlocked = vcashApp.controller.onWalletWantUnlock(values[0].ToStdString());
-                        if(unlocked)
-                            vcashApp.view.setWalletStatus(Unlocked);
-                        return unlocked;
-                    }
-    );
-    return pair.first == wxID_OK;
+    wxString title = wxT("Unlock wallet");
+
+    bool result = false;
+    if(!vcashApp.controller.isWalletLocked()) {
+        wxMessageBox(
+                wxT("Cannot unlock wallet. Wallet is not currently locked"),
+                title, wxOK | wxICON_EXCLAMATION, &parent);
+    } else {
+        auto pair = EntryDialog::run(parent
+                , title
+                , { { wxT("Password"), wxTE_PASSWORD, wxT("Enter your password"), wxDefaultSize } }
+                , [&vcashApp](EntryDialog &dlg) {
+                    std::vector<wxString> values = dlg.getValues();
+                    if(!dlg.validate(vcashApp.controller.onWalletWantUnlock(values[0].ToStdString())
+                                    ,wxT("Wallet could not be unlocked. Maybe password is incorrect")))
+                        return false;
+                    else
+                        return true;
+                }
+        );
+        result = pair.first == wxID_OK;
+    }
+    vcashApp.view.setWalletStatus(vcashApp.controller.getWalletStatus());
+    return result;
 }
 
 void WalletActions::rescan(VcashApp &vcashApp, wxWindow &parent) {
@@ -178,112 +218,26 @@ void WalletActions::rescan(VcashApp &vcashApp, wxWindow &parent) {
 }
 
 DumpHDSeedDlg::DumpHDSeedDlg(VcashApp &vcashApp, wxWindow &parent)
-        : wxDialog(&parent, wxID_ANY, wxT("Show HD seed")) {
-
+        : ShowInfoDialog(parent, wxT("Show HD seed"), [this, &vcashApp]() {
     wxString warning = wxT("This is your hierarchical deterministic seed.\n"
                            "Anyone knowing this seed can access your\n"
                            "funds. Keep it safe!");
-    wxTextCtrl *seedCtrl = new wxTextCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition, wxSize(300, 100), wxTE_MULTILINE | wxTE_BESTWRAP);
-    wxButton *closeButton = new wxButton(this, wxID_ANY, wxT("Close"));
+    wxTextCtrl *seedCtrl = new wxTextCtrl( this, wxID_ANY, wxT(""), wxDefaultPosition
+            , wxSize(260, 80), wxTE_MULTILINE | wxTE_BESTWRAP | wxTE_READONLY);
 
     wxString seed = vcashApp.controller.getHDSeed();
 
     seedCtrl->SetValue(seed.empty() ? wxT("This is not a hierarchical deterministic wallet!") : seed);
     seedCtrl->SetEditable(false);
 
-
-    wxBoxSizer *hbox = new wxBoxSizer(wxVERTICAL);
+    wxBoxSizer *vbox = new wxBoxSizer(wxVERTICAL);
     int border = 10;
     if(!seed.empty()) {
-        hbox->Add(new wxStaticText(this, wxID_ANY, warning), 0, wxALL, border);
+        vbox->Add(new wxStaticText(this, wxID_ANY, warning), 0, wxALL | wxALIGN_CENTER, border);
         seedCtrl->SetToolTip(warning);
     }
 
-    hbox->Add(seedCtrl, 1, wxALL, border);
-    hbox->Add(closeButton, wxSizerFlags().Center());
-    hbox->AddSpacer(border);
+    vbox->Add(seedCtrl, 1, wxALL | wxALIGN_CENTER, border);
+    return vbox;
+}) {}
 
-    SetSizerAndFit(hbox);
-
-    closeButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { EndModal(wxID_OK); });
-
-    seedCtrl->Bind(wxEVT_KEY_DOWN, [this](wxKeyEvent &ev) {
-        switch (ev.GetKeyCode()) {
-            case WXK_ESCAPE:
-                EndModal(wxID_CANCEL);
-                break;
-            case WXK_RETURN:
-                EndModal(wxID_OK);
-                break;
-            default:
-                ev.Skip();
-        }
-    });
-}
-
-SettingsMenu::SettingsMenu(VcashApp &vcashApp, wxWindow &parent) : wxMenu() {
-    enum PopupMenu {
-        About, ChangePass, Encrypt, Lock, Seed, Unlock, Rescan
-    };
-
-    bool loaded = vcashApp.controller.isWalletLoaded();
-    if(loaded) {
-        wxMenu *submenu = new wxMenu();
-        if(!vcashApp.controller.isWalletLocked()) {
-            submenu->Append(Seed, wxT("&Show HD seed"));
-        } else {
-            submenu->Append(Seed, wxT("&Show HD seed (unlock first!)"));
-            submenu->Enable(Seed, false);
-        }
-        if(vcashApp.controller.isWalletCrypted())
-            submenu->Append(ChangePass, wxT("&Change password"));
-        if(!vcashApp.controller.isWalletCrypted())
-            submenu->Append(Encrypt, wxT("&Encrypt"));
-        if(vcashApp.controller.isWalletLocked())
-           submenu->Append(Unlock, wxT("&Unlock"));
-        else if(vcashApp.controller.isWalletCrypted()) {
-            submenu->Append(Lock, wxT("&Lock"));
-        }
-        submenu->Append(Rescan, wxT("&Rescan"));
-        AppendSubMenu(submenu, wxT("Wallet"));
-        AppendSeparator();
-    }
-
-    Append(About, wxT("&About"));
-
-    auto select = parent.GetPopupMenuSelectionFromUser(*this);
-
-    switch(select) {
-        case Encrypt: {
-            WalletActions::encrypt(vcashApp, parent);
-            break;
-        }
-        case ChangePass: {
-            WalletActions::changePassword(vcashApp, parent);
-            break;
-        }
-        case Seed: {
-            WalletActions::dumpHDSeed(vcashApp, parent);
-            break;
-        }
-        case Lock: {
-            vcashApp.controller.walletLock();
-            break;
-        }
-        case Unlock: {
-            WalletActions::unlock(vcashApp, parent);
-            break;
-        }
-        case Rescan: {
-            WalletActions::rescan(vcashApp, parent);
-            break;
-        }
-        case About: {
-            wxMessageBox(wxT("A wxWidgets wallet for Vcash.\nCopyright (C) The Vcash Developers."), wxT("About wxVcash"),
-                         wxOK | wxICON_INFORMATION, &parent);
-            break;
-        }
-        default:
-            break;
-    }
-}

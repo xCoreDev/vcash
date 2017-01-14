@@ -33,11 +33,12 @@
 using namespace wxGUI;
 
 MainFrame::MainFrame(VcashApp &vcashApp)
-        : wxFrame(NULL, wxID_ANY, wxT("Vcash"), wxDefaultPosition, wxDefaultSize,STYLE) {
+        : vcashApp(vcashApp)
+        , wxFrame(NULL, wxID_ANY, wxT("Vcash"), wxDefaultPosition, wxDefaultSize,STYLE) {
 
     SetIcon(Resources::vcashIcon);
 
-    MainPanel *vcashPanel = new MainPanel(vcashApp, *this);
+    MainPanel *mainPanel = new MainPanel(vcashApp, *this);
 
     ToolsFrame *toolsFrame = new ToolsFrame(vcashApp, *this);
     toolsFrame->Show(false);
@@ -48,43 +49,68 @@ MainFrame::MainFrame(VcashApp &vcashApp)
     vcashApp.view.mainFrame = this;
 
     wxSizer *sizerV = new wxBoxSizer(wxVERTICAL);
-    sizerV->Add(vcashPanel
+    sizerV->Add(mainPanel
             , 1        // make horizontally stretchable
             , wxEXPAND // make it fill parent
     );
 
     SetSizerAndFit(sizerV);
 
-    Bind(wxEVT_ACTIVATE, [this, toolsFrame](wxActivateEvent &event) {
-        if (event.GetActive()) {
-            toolsFrame->Show(false);
-        }
+    Bind(wxEVT_ONSTATUS, [&vcashApp](OnStatusEvent &ev) {
+        vcashApp.controller.onStatus(ev.GetPairs());
     });
 
-    Bind(wxEVT_ONSTATUS, [&vcashApp](OnStatusEvent &event) {
-        vcashApp.controller.OnStatus(event.GetPairs());
+    Bind(wxEVT_ONERROR, [&vcashApp](OnErrorEvent &ev) {
+        vcashApp.controller.onError(ev.GetPairs());
     });
 
-    Bind(wxEVT_ONERROR, [&vcashApp](OnErrorEvent &event) {
-        vcashApp.controller.OnError(event.GetPairs());
+    Bind(wxEVT_ONALERT, [&vcashApp](OnAlertEvent &ev) {
+        vcashApp.controller.onAlert(ev.GetPairs());
     });
 
-    auto moveToolsFrame = [this, &vcashApp, toolsFrame]() {
-        wxRect rect;
-        vcashApp.view.statusBar->GetFieldRect(StatusBar::Tools, rect);
-        toolsFrame->Move(vcashApp.view.statusBar->ClientToScreen(
-                wxPoint(rect.x+rect.width/2, rect.y+rect.height/2)));
-    };
-
-    Bind(wxEVT_MOVE, [moveToolsFrame](wxMoveEvent &event) {
-        moveToolsFrame();
-        event.Skip();
+    Bind(wxEVT_MOVE, [toolsFrame](wxMoveEvent &ev) {
+        toolsFrame->updatePosition();
+        ev.Skip();
     });
 
-    Bind(wxEVT_SIZE, [moveToolsFrame](wxSizeEvent &event) {
-        moveToolsFrame();
-        event.Skip();
+    Bind(wxEVT_SIZE, [toolsFrame](wxSizeEvent &ev) {
+        toolsFrame->updatePosition();
+        ev.Skip();
+    });
+
+    Bind(wxEVT_ICONIZE, [this, &vcashApp](wxIconizeEvent& ev) {
+        if(vcashApp.taskBarIconEnabled) {
+            bool wantIconize = IsIconized();
+            if(wantIconize) {
+                minimizeToTray();
+            }
+        } else
+            ev.Skip();
+    });
+
+    Bind(wxEVT_CLOSE_WINDOW, [this, &vcashApp](wxCloseEvent ev) {
+       if(!vcashApp.canExit())
+           ev.Veto();
+       else
+           Destroy();
+    });
+
+    Bind(wxEVT_SET_FOCUS, [mainPanel](wxFocusEvent &ev) {
+        mainPanel->SetFocus();
     });
 };
 
+void MainFrame::minimizeToTray() {
+    vcashApp.view.toolsFrame->Iconize(true);
+    vcashApp.view.toolsFrame->Hide();
+    vcashApp.view.mainFrame->Iconize(true);
+    vcashApp.view.mainFrame->Hide();
+}
 
+void MainFrame::restoreFromTray() {
+    vcashApp.view.mainFrame->Iconize(false); // restore the window if minimized
+    vcashApp.view.mainFrame->Restore();      // restore the window if minimized
+    vcashApp.view.mainFrame->SetFocus();     // focus on my window
+    vcashApp.view.mainFrame->Raise();        // bring window to front
+    vcashApp.view.mainFrame->Show(true);     // show the window
+}

@@ -20,6 +20,7 @@
 
 #include "AddressesPage.h"
 #include "BlockExplorer.h"
+#include "QRDialog.h"
 #include "ToolsFrame.h"
 #include "VcashApp.h"
 
@@ -72,17 +73,17 @@ AddressesPage::AddressesPage(VcashApp &vcashApp, wxWindow &parent)
 
     listCtrl = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxSize(445, wxDefaultSize.GetHeight()),
                                wxLC_REPORT | wxLC_SINGLE_SEL | wxBORDER_NONE);
-    listCtrl->InsertColumn(Account, "Account", wxLIST_FORMAT_LEFT, 100);
-    listCtrl->InsertColumn(Address, "Address", wxLIST_FORMAT_LEFT, 340);
+    listCtrl->InsertColumn(Column::Account, "Account", wxLIST_FORMAT_LEFT, 100);
+    listCtrl->InsertColumn(Column::Address, "Address", wxLIST_FORMAT_LEFT, 340);
 
     wxSizer *pageSizer = new wxBoxSizer(wxVERTICAL);
     pageSizer->Add(listCtrl, 1, wxALL | wxEXPAND, 5);
 
     SetSizerAndFit(pageSizer);
 
-    listCtrl->Bind(wxEVT_LIST_ITEM_RIGHT_CLICK, [this, &vcashApp](wxListEvent &event) {
-        long index = event.GetIndex();
+    auto openMenu = [this, &vcashApp](long index, wxPoint pos) {
         bool onAddress = index >= 0;
+        std::string address = onAddress ? listCtrl->GetItemText(index, Address).ToStdString() : "";
 
         enum PopupMenu {
             Copy, BlockExperts, VcashExplorer, New, QR
@@ -104,58 +105,60 @@ AddressesPage::AddressesPage(VcashApp &vcashApp, wxWindow &parent)
         popupMenu.Append(QR, wxT("&QR Code"));
         popupMenu.Enable(QR, onAddress);
 
-        auto select = GetPopupMenuSelectionFromUser(popupMenu);
+        auto select = GetPopupMenuSelectionFromUser(popupMenu, pos);
 
         switch (select) {
             case Copy: {
-                if (index >= 0) {
-                    wxString address = listCtrl->GetItemText(index, Address);
-
-                    if (wxTheClipboard->Open()) {
-                        // wxTheClipboard->Clear(); doesn't work on Windows
-                        wxTheClipboard->SetData(new wxTextDataObject(address));
-                        // wxTheClipboard->Flush();
-
-                        wxTheClipboard->Close();
-                    }
+                if (wxTheClipboard->Open()) {
+                    // wxTheClipboard->Clear(); doesn't work on Windows
+                    wxTheClipboard->SetData(new wxTextDataObject(address));
+                    // wxTheClipboard->Flush();
+                    wxTheClipboard->Close();
                 }
                 break;
             }
-
             case BlockExperts: {
-                if (index >= 0) {
-                    std::string address = listCtrl->GetItemText(index, Address).ToStdString();
-                    wxLaunchDefaultBrowser(BlockExperts::addressURL(address));
-                }
+                wxLaunchDefaultBrowser(BlockExperts::addressURL(address));
                 break;
             }
-
             case VcashExplorer: {
-                if (index >= 0) {
-                    std::string address = listCtrl->GetItemText(index, Address).ToStdString();
-                    wxLaunchDefaultBrowser(VcashExplorer::addressURL(address));
-                }
+                wxLaunchDefaultBrowser(VcashExplorer::addressURL(address));
                 break;
             }
-
             case New: {
                 wxString account = (index >= 0) ? listCtrl->GetItemText(index, Account) : wxT("");
                 vcashApp.controller.onConsoleCommandEntered("getnewaddress " + account.ToStdString());
                 break;
             }
-
             case QR:
-                if (index >= 0) {
-                    //toDo: generate QR code
-                    ;
-                }
+                new QRDialog(*this, wxT("QR Address"), address);
                 break;
-
             default:
                 break;
         }
+    };
 
-        event.Skip();
+    listCtrl->Bind(wxEVT_LIST_ITEM_RIGHT_CLICK, [openMenu](wxListEvent &ev) {
+        long index = ev.GetIndex();
+        openMenu(index, wxDefaultPosition);
+        ev.Skip();
+    });
+
+    listCtrl->Bind(wxEVT_CHAR, [this, openMenu](wxKeyEvent &ev) {
+        if(ev.GetKeyCode() == WXK_RETURN && listCtrl->GetSelectedItemCount() > 0) {
+
+            long index = listCtrl->GetNextItem(-1,
+                                               wxLIST_NEXT_ALL,
+                                               wxLIST_STATE_SELECTED);
+            if(index >= 0) {
+                wxPoint pos;
+                listCtrl->GetItemPosition(index, pos);
+                pos.x += 50;
+                pos.y += 50;
+                openMenu(index, pos);
+            }
+        }
+        ev.Skip();
     });
 
     // Sort is according to first element in order vector. true means ascending order.
@@ -179,6 +182,7 @@ AddressesPage::AddressesPage(VcashApp &vcashApp, wxWindow &parent)
             sortData.order[0] = p;
             listCtrl->SortItems(cmpAddresses, (wxIntPtr) &sortData);
         }
+        ev.Skip();
     });
 }
 
@@ -226,7 +230,6 @@ void AddressesPage::emboldenAddress(const std::string &address, bool bold) {
             listCtrl->GetItem(info);
             wxFont font = info.GetFont();
             font.SetWeight(bold ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL);
-
             info.SetFont(font);
             // It seems we need to temporarily change colour in order to effectively change the font
             wxColour colour = info.GetBackgroundColour();

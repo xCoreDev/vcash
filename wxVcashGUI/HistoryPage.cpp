@@ -21,6 +21,7 @@
 
 #include "BlockExplorer.h"
 #include "HistoryPage.h"
+#include "QRDialog.h"
 #include "Resources.h"
 #include "VcashApp.h"
 
@@ -161,72 +162,87 @@ HistoryPage::HistoryPage(VcashApp &vcashApp, wxWindow &parent)
         }
     });
 
-    listCtrl->Bind(wxEVT_LIST_ITEM_RIGHT_CLICK, [this, &vcashApp](wxListEvent &event) {
-        long index = event.GetIndex();
+    auto openMenu = [this, &vcashApp](long index, wxPoint pos) {
+        std::string txid = *((std::string *) listCtrl->GetItemData(index));
+        enum PopupMenu {
+            BlockExperts, VcashExplorer, Copy, Info, Lock, QR
+        };
+
+        wxMenu *explorers = new wxMenu();;
+        explorers->Append(BlockExperts, wxT("Block Experts"));
+        explorers->Append(VcashExplorer, wxT("Vcash Explorer"));
+
+        wxMenu popupMenu;
+        popupMenu.AppendSubMenu(explorers, wxT("&Block explorer"));
+        popupMenu.Append(Copy, wxT("&Copy"));
+        popupMenu.Append(Info, wxT("&Information"));
+        popupMenu.Append(Lock, wxT("&Lock"));
+        popupMenu.Append(QR, wxT("&QR"));
+
+        popupMenu.Enable(Lock, vcashApp.controller.canZerotimeLock(txid));
+
+        auto select = GetPopupMenuSelectionFromUser(popupMenu, pos);
+        switch (select) {
+            case BlockExperts: {
+                wxLaunchDefaultBrowser(BlockExperts::transactionURL(txid));
+                break;
+            }
+            case VcashExplorer: {
+                wxLaunchDefaultBrowser(VcashExplorer::transactionURL(txid));
+                break;
+            }
+            case Copy: {
+                if (wxTheClipboard->Open()) {
+                    // wxTheClipboard->Clear(); doesn't work on Windows
+                    wxTheClipboard->SetData(new wxTextDataObject(txid));
+                    // wxTheClipboard->Flush();
+                    wxTheClipboard->Close();
+                }
+                break;
+            }
+            case Info: {
+                std::string cmd = "gettransaction " + txid;
+                vcashApp.controller.onConsoleCommandEntered(cmd);
+                break;
+            }
+            case Lock: {
+                vcashApp.controller.onZerotimeLockTransaction(txid);
+                break;
+            }
+            case QR: {
+                new QRDialog(*this, wxT("QR transaction"), wxString(txid));
+                break;
+            }
+            default: {
+                break;
+            };
+        }
+    };
+
+    listCtrl->Bind(wxEVT_LIST_ITEM_RIGHT_CLICK, [this, openMenu](wxListEvent &ev) {
+        long index = ev.GetIndex();
 
         if (index >= 0) {
-            enum PopupMenu {
-                BlockExperts, VcashExplorer, Copy, Info, Lock
-            };
-
-            wxMenu *explorers = new wxMenu();;
-            explorers->Append(BlockExperts, wxT("Block Experts"));
-            explorers->Append(VcashExplorer, wxT("Vcash Explorer"));
-
-            wxMenu popupMenu;
-            popupMenu.AppendSubMenu(explorers, wxT("&Block explorer"));
-            popupMenu.Append(Copy, wxT("&Copy"));
-            popupMenu.Append(Info, wxT("&Information"));
-            popupMenu.Append(Lock, wxT("&Lock"));
-
-            auto select = GetPopupMenuSelectionFromUser(popupMenu);
-            listCtrl->SetItemState(index, 0,
-                                   wxLIST_STATE_FOCUSED | wxLIST_STATE_SELECTED);
-
-            switch (select) {
-                case BlockExperts: {
-                    std::string txid = *((std::string *) listCtrl->GetItemData(index));
-                    wxLaunchDefaultBrowser(BlockExperts::transactionURL(txid));
-                    break;
-                }
-
-                case VcashExplorer: {
-                    std::string txid = *((std::string *) listCtrl->GetItemData(index));
-                    wxLaunchDefaultBrowser(VcashExplorer::transactionURL(txid));
-                    break;
-                }
-
-                case Copy: {
-                    std::string txid = *((std::string *) listCtrl->GetItemData(index));
-
-                    if (wxTheClipboard->Open()) {
-                        // wxTheClipboard->Clear(); doesn't work on Windows
-                        wxTheClipboard->SetData(new wxTextDataObject(txid));
-                        // wxTheClipboard->Flush();
-
-                        wxTheClipboard->Close();
-                    }
-                    break;
-                }
-
-                case Info: {
-                    std::string txid = *((std::string *) listCtrl->GetItemData(index));
-                    std::string cmd = "gettransaction " + txid;
-                    vcashApp.controller.onConsoleCommandEntered(cmd);
-                    break;
-                }
-
-                case Lock: {
-                    std::string txid = *((std::string *) listCtrl->GetItemData(index));
-                    vcashApp.controller.onZerotimeLockTransaction(txid);
-                    break;
-                }
-
-                default: {
-                    break;
-                };
-            }
+            openMenu(index, wxDefaultPosition);
         }
+        ev.Skip();
+    });
+
+    listCtrl->Bind(wxEVT_CHAR, [this, openMenu](wxKeyEvent &ev) {
+       if(ev.GetKeyCode() == WXK_RETURN && listCtrl->GetSelectedItemCount() > 0) {
+
+           long index = listCtrl->GetNextItem(-1,
+                                        wxLIST_NEXT_ALL,
+                                        wxLIST_STATE_SELECTED);
+           if(index >= 0) {
+               wxPoint pos;
+               listCtrl->GetItemPosition(index, pos);
+               pos.x += 50;
+               pos.y += 50;
+               openMenu(index, pos);
+           }
+       }
+       ev.Skip();
     });
 }
 
@@ -257,7 +273,7 @@ void HistoryPage::addTransaction(const std::string &txid, const std::time_t &tim
         char formattedTime[256];
         std::strftime(formattedTime, sizeof(formattedTime), "%m/%d/%y %H:%M:%S", std::localtime(&time));
 
-        listCtrl->SetItem(index, Icon, wxString(""), Yellow);
+        listCtrl->SetItem(index, Icon, wxString(""), static_cast<int>(BulletColor::Yellow));
         listCtrl->SetItem(index, Date, wxString(formattedTime));
         listCtrl->SetItem(index, Status, wxString(status));
         listCtrl->SetItem(index, Amount, wxString(amount));
@@ -276,7 +292,8 @@ void HistoryPage::setColour(const std::string &txid, BulletColor color) {
         if (index >= 0) {
             bool isOut = listCtrl->GetItemText(index, Amount)[0] == '-';
             int numImages = listCtrl->GetImageList(wxIMAGE_LIST_SMALL)->GetImageCount();
-            listCtrl->SetItem(index, Icon, wxString(""), isOut ? color : numImages / 2 + color);
+            int numColor = static_cast<int>(color);
+            listCtrl->SetItem(index, Icon, wxString(""), isOut ? numColor : numImages / 2 + numColor);
         }
     }
 }
@@ -285,7 +302,7 @@ void HistoryPage::setStatus(const std::string &txid, const std::string &status) 
     auto it = transactions.find(txid);
     if (it != transactions.end()) {
         long index = listCtrl->FindItem(-1,
-                                        (wxUIntPtr) &(it->first));  // find index of item in listCtrl with this txid
+                       (wxUIntPtr) &(it->first));  // find index of item in listCtrl with this txid
         if (index >= 0) {
             listCtrl->SetItem(index, Status, wxString(status));
         }

@@ -10,30 +10,26 @@
  *
  ******************************************************************************/
 
-#ifndef RESOURCES_H
-#define RESOURCES_H
+#ifndef QRDIALOG_H
+#define QRDIALOG_H
 
 #include <wx/wxprec.h>
 
 #ifndef WX_PRECOMP
-#include <wx/bitmap.h>
-#include <wx/icon.h>
-#include <wx/image.h>
+#include <wx/dialog.h>
+#include <wx/frame.h>
+#include <wx/window.h>
 #endif
 
+#include "ShowInfoDialog.h"
+#include "qrencode.h"
+
 namespace wxGUI {
-
-    class Resources {
+    class QRDialog : public ShowInfoDialog {
     public:
-        static void init();
-
-        static wxBitmap redR, greenR, yellowR;
-        static wxBitmap empty, locked, settings, tools, unlocked;
-
-        static wxIcon vcashIcon;
-
-        static wxImage vcashImage64;
+        QRDialog(wxWindow &parent, const wxString &title, const wxString &str);
+        wxSizer *contents();
     };
 }
 
-#endif // RESOURCES_H
+#endif //QRDIALOG_H

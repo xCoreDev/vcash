@@ -26,6 +26,10 @@ namespace wxGUI {
     class MainFrame : public wxFrame {
     public:
         MainFrame(VcashApp &vcashApp);
+        void minimizeToTray();
+        void restoreFromTray();
+    private:
+        VcashApp &vcashApp;
     };
 }
 

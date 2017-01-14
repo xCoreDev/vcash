@@ -25,7 +25,7 @@ namespace wxGUI {
 
     class VcashApp;
 
-    enum WalletStatus {
+    enum class WalletStatus {
         Unknown, Unencrypted, Locked, Unlocked
     };
 

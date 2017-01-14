@@ -23,21 +23,25 @@
 #include <wx/statusbr.h>
 #endif
 
-#include "HistoryPage.h"
-#include "StatisticsPage.h"
-#include "StatusBarWallet.h"
+#include <ctime>
 
 namespace wxGUI {
 
     class AddressesPage;
     class AccountPage;
+    enum class BulletColor;
     class ConsolePage;
+    class HistoryPage;
     class MainFrame;
     class MiningPage;
+    class StatisticsPage;
     class StatusBarWallet;
     class StatusBar;
+    class TaskBarIcon;
     class ToolsFrame;
     class ToolsPanel;
+    class VcashApp;
+    enum class WalletStatus;
 
     class View {
     public:
@@ -47,6 +51,8 @@ namespace wxGUI {
         WalletStatus getWalletStatus();
 
         void setStatusBarMessage(const std::string &msg);
+
+        void setStatusBarWorking(bool working);
 
         // Account
         void setBalance(const std::string &balance);
@@ -96,9 +102,14 @@ namespace wxGUI {
 
         void notificationBox(const std::string &msg, const std::string &title);
 
-        std::pair<bool, std::string> restoreHDSeed();
+        std::pair<bool, std::string> restoreHDSeed(VcashApp &vcashApp);
+
+        void showContextMenu(VcashApp &vcashApp, bool atClickPosition = true);
+
+        void showHideToolsFrame(bool showAlso = true);
 
         MainFrame *mainFrame;
+        TaskBarIcon *taskBarIcon;
         ToolsFrame *toolsFrame;
         StatusBar *statusBar;
         ToolsPanel *toolsPanel;

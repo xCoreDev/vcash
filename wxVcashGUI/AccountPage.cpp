@@ -35,7 +35,7 @@ AccountPage::AccountPage(VcashApp &vcashApp, wxWindow &parent) : wxPanel(&parent
     stake->SetToolTip(wxT("Your staking balance"));
     immature->SetToolTip(wxT("Your immature balance"));
 
-    int cols = 2, vgap = 10, hgap = 20;
+    const int cols = 2, vgap = 10, hgap = 20;
     wxSizer *gridSizer = new wxGridSizer(cols, vgap, hgap);
 
     gridSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Balance:")), wxSizerFlags().Right());
@@ -47,11 +47,11 @@ AccountPage::AccountPage(VcashApp &vcashApp, wxWindow &parent) : wxPanel(&parent
     gridSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Immature:")), wxSizerFlags().Right());
     gridSizer->Add(immature, wxSizerFlags().Left());
 
-    wxSizer *sizerH = new wxBoxSizer(wxVERTICAL);
-    sizerH->AddSpacer(vgap);
-    sizerH->Add(gridSizer, wxSizerFlags().Border(wxALL, hgap).Center());
+    wxSizer *sizerV = new wxBoxSizer(wxVERTICAL);
+    sizerV->AddSpacer(vgap);
+    sizerV->Add(gridSizer, wxSizerFlags().Border(wxALL, hgap).Center());
 
-    SetSizerAndFit(sizerH);
+    SetSizerAndFit(sizerV);
 }
 
 void AccountPage::setBalance(const std::string &balance) {

@@ -23,11 +23,12 @@
 
 namespace wxGUI {
     class OnStatusEvent;
-
     class OnErrorEvent;
+    class OnAlertEvent;
 
     wxDECLARE_EVENT(wxEVT_ONSTATUS, OnStatusEvent);
     wxDECLARE_EVENT(wxEVT_ONERROR, OnErrorEvent);
+    wxDECLARE_EVENT(wxEVT_ONALERT, OnAlertEvent);
 
     typedef void (wxEvtHandler::*OnStatusEventFunction)(OnStatusEvent &);
 
@@ -61,6 +62,12 @@ namespace wxGUI {
     class OnErrorEvent : public OnPairsEvent {
     public:
         OnErrorEvent(wxEventType commandType = wxEVT_ONERROR, int id = 0) :
+                OnPairsEvent(commandType, id) {};
+    };
+
+    class OnAlertEvent : public OnPairsEvent {
+    public:
+        OnAlertEvent(wxEventType commandType = wxEVT_ONALERT, int id = 0) :
                 OnPairsEvent(commandType, id) {};
     };
 }

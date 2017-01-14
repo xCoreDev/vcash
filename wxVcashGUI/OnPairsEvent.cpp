@@ -16,6 +16,7 @@ using namespace wxGUI;
 
 wxDEFINE_EVENT(wxGUI::wxEVT_ONSTATUS, OnStatusEvent);
 wxDEFINE_EVENT(wxGUI::wxEVT_ONERROR, OnErrorEvent);
+wxDEFINE_EVENT(wxGUI::wxEVT_ONALERT, OnAlertEvent);
 
 OnPairsEvent::OnPairsEvent(wxEventType commandType, int id)
         :  wxCommandEvent(commandType, id) { }

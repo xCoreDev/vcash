@@ -10,30 +10,25 @@
  *
  ******************************************************************************/
 
-#ifndef RESOURCES_H
-#define RESOURCES_H
+#ifndef TASKBARICON_H
+#define TASKBARICON_H
 
 #include <wx/wxprec.h>
 
 #ifndef WX_PRECOMP
-#include <wx/bitmap.h>
-#include <wx/icon.h>
-#include <wx/image.h>
+#include <wx/taskbar.h>
+#include <wx/window.h>
 #endif
 
 namespace wxGUI {
+    class VcashApp;
 
-    class Resources {
+    class TaskBarIcon : public wxTaskBarIcon {
     public:
-        static void init();
-
-        static wxBitmap redR, greenR, yellowR;
-        static wxBitmap empty, locked, settings, tools, unlocked;
-
-        static wxIcon vcashIcon;
-
-        static wxImage vcashImage64;
+        TaskBarIcon(VcashApp &vcashApp);
+        void disable();
+        static bool isEnabled();
     };
-}
+};
 
-#endif // RESOURCES_H
+#endif // TASKBARICON_H

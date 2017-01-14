@@ -11,116 +11,30 @@
  ******************************************************************************/
 
 #include "Controller.h"
-#include "EntryDialog.h"
+#include "HistoryPage.h"
 #include "MainFrame.h"
-#include "OnPairsEvent.h"
+#include "StatusBarWallet.h"
+#include "Utils.h"
 #include "View.h"
 
-#include <cstddef>
-#include <thread>
+#ifndef _MSC_VER
+using std::isspace;
+#endif
 
 using namespace wxGUI;
-
-class Utils {
-private:
-    static const int64_t oneVcash = 1000000;
-public:
-    static std::int64_t toJohnoshis(double amount) {
-        return static_cast<std::int64_t >(amount*oneVcash);
-    }
-
-    static std::int64_t toJohnoshis(const std::string &amount) {
-        return toJohnoshis(std::stod (amount, nullptr));
-    }
-
-    static double fromJohnoshis(std::int64_t amount) {
-        return (double)amount/oneVcash;
-    }
-
-    static double fromJohnoshis(std::string &amount) {
-        return fromJohnoshis(std::stol (amount, nullptr));
-    }
-
-    static std::string formatted(double amount, int decimals) {
-        char buffer[256];
-        std::string format = "%."+std::to_string(decimals)+"f";
-        snprintf(buffer, sizeof(buffer), format.c_str(), amount);
-        std::string res = buffer;
-        return res;
-    }
-    
-    static std::string find(const std::string &key, const std::map<std::string, std::string> &pairs) {
-        auto it = pairs.find(key);
-        if (it != pairs.end())
-            return it->second;
-        else
-            return std::string("");
-    }
-
-    static bool isPrefix(const std::string &prefix, const std::string &str) {
-        auto res = std::mismatch(prefix.begin(), prefix.end(), str.begin());
-        return (res.first == prefix.end());
-    }
-};
-
-wxStack::wxStack(View &view)
-        : view(view)
-        , coin::stack() { }
-
-void wxStack::on_error(const std::map<std::string, std::string> &pairs) {
-    std::string value = Utils::find("value", pairs);
-    view.messageBox(value, "Fatal error", wxOK | wxICON_ERROR);
-    return;
-
-    // post event to GUI thread which will process the request 
-    // in Controller::OnError
-    OnErrorEvent onErrorEvent;
-    onErrorEvent.SetPairs(pairs);
-    wxPostEvent(view.mainFrame, onErrorEvent);
-};
-
-void wxStack::on_status(const std::map<std::string, std::string> &pairs) {
-    // post event to GUI thread which will process the request 
-    // in Controller::OnStatus
-    OnStatusEvent onStatusEvent;
-    onStatusEvent.SetPairs(pairs);
-    wxPostEvent(view.mainFrame, onStatusEvent);
-};
-
-void wxStack::on_alert(const std::map<std::string, std::string> &pairs)  {
-#if 0
-    std::string txt = "";
-    for(auto iterator = pairs.begin(); iterator != pairs.end(); iterator++) {
-        txt += iterator->first + " -> " + iterator->second + "\n";
-    }
-    view.messageBox(txt, "Alert", wxOK | wxICON_ERROR);
-#endif
-    return;
-};
-
-
 
 Controller::Controller(View &view)
         : view(view)
         , stack(view)
         , walletLoaded(false) { }
 
-bool Controller::onInit() {
-    std::map<std::string,std::string> args;
-
-    bool isClient = false;
-    if(!stack.wallet_exists(isClient)) {
-        auto pair = view.restoreHDSeed();
-        if(pair.first) {
-            args["wallet-seed"] = pair.second;
-        }
-    }
-
+bool Controller::onInit(std::map<std::string, std::string> &args) {
+    view.setStatusBarWorking(true);
     stack.start(args);
 
     view.setMining(false);
 
-    std::string zero = "0.000000";
+    std::string zero = Utils::formatted(0.0, 6);
 
     view.setBalance(zero);
     view.setUnconfirmed(zero);
@@ -169,32 +83,44 @@ void Controller::onSendPressed(const std::string &pay, const std::string &to, co
     stack.send_coins(amount, to, walletArgs);
 }
 
-void Controller::walletLock() {
-    stack.wallet_lock();
-    view.setWalletStatus(Locked);
+bool Controller::isWalletCrypted() {
+    return stack.wallet_is_crypted();
+}
+
+bool Controller::isWalletLocked() {
+    return stack.wallet_is_locked();
+}
+
+bool Controller::isWalletLoaded() {
+    return walletLoaded;
+}
+
+WalletStatus Controller::getWalletStatus() {
+    if(!isWalletLoaded())
+        return WalletStatus::Unknown;
+    if(!isWalletCrypted())
+        return WalletStatus::Unencrypted;
+    else if(isWalletLocked())
+        return WalletStatus::Locked;
+    else
+        return WalletStatus::Unlocked;
+}
+
+bool Controller::onWalletWantLock() {
+    return wxStack::lockWallet();
 }
 
 bool Controller::onWalletWantUnlock(const std::string &password) {
-    stack.wallet_unlock(password);
-    for(int i=0; i<50; i++) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        if (!stack.wallet_is_locked()) {
-            view.setWalletStatus(Unlocked);
-            return true;
-        }
-    }
-    return false;
+    return wxStack::unlockWallet(password);
 }
 
-void Controller::encryptWallet(const std::string &password) {
-    stack.wallet_encrypt(password);
-    view.setWalletStatus(Locked);
+bool Controller::onWalletWantEncrypt(const std::string &password) {
+    return wxStack::encryptWallet(password);
 }
 
-void Controller::walletChangePassword(
-        const std::string &passphrase_old,
-        const std::string &password_new) {
-  stack.wallet_change_passphrase(passphrase_old, password_new);
+bool Controller::walletChangePassword(const std::string &oldPassword
+                                     ,const std::string &newPassword) {
+    return wxStack::changePassword(oldPassword, newPassword);
 }
 
 void Controller::onMiningPressed(bool isMining) {
@@ -211,39 +137,39 @@ void Controller::onConsoleCommandEntered(const std::string &command) {
     stack.rpc_send(command);
 }
 
-// Called when user wants to lock a transaction
 void Controller::onZerotimeLockTransaction(const std::string &txid) {
     stack.wallet_zerotime_lock(txid);
 }
 
+bool Controller::canZerotimeLock(const std::string &txid) {
+    return wxStack::canZerotimeLock(txid);
+}
+
 std::string Controller::getHDSeed() {
-    std::cout << stack.wallet_hd_keychain_seed() << std::endl;
     return stack.wallet_hd_keychain_seed();
 }
 
-
-bool Controller::isWalletCrypted() {
-    return stack.wallet_is_crypted();
-}
-
-bool Controller::isWalletLocked() {
-    return stack.wallet_is_locked();
-}
-
-bool Controller::isWalletLoaded() {
-    return walletLoaded;
-}
-
-void Controller::OnError(const std::map<std::string, std::string> &pairs) {
-    std::string value = Utils::find("value", pairs);
-    view.messageBox(value, "Fatal error", wxOK | wxICON_ERROR);
+void Controller::onError(const std::map<std::string, std::string> &pairs) {
+    std::string txt = "";
+    for(auto iterator = pairs.begin(); iterator != pairs.end(); iterator++) {
+        txt += iterator->first + " -> " + iterator->second + "\n";
+    }
+    view.messageBox(txt, "Fatal error", wxOK | wxICON_ERROR);
     stack.stop();
+}
+
+void Controller::onAlert(const std::map<std::string, std::string> &pairs) {
+    std::string txt = "";
+    for(auto iterator = pairs.begin(); iterator != pairs.end(); iterator++) {
+        txt += iterator->first + " -> " + iterator->second + "\n";
+    }
+    view.messageBox(txt, "Alert", wxOK | wxICON_EXCLAMATION);
 }
 
 // This method is called whenever the Vcash stack sends an on_status message. 
 // This method is guaranteed to run on the GUI thread, which is required for 
 // modifying elements in the GUI without crashing the application.
-void Controller::OnStatus(const std::map<std::string, std::string> &pairs) {
+void Controller::onStatus(const std::map<std::string, std::string> &pairs) {
     //wxMutexGuiEnter();
     if (pairs.size() > 0) {
 #if 0
@@ -319,6 +245,8 @@ void Controller::OnStatus(const std::map<std::string, std::string> &pairs) {
             std::string value = Utils::find("value", pairs);
             if(value == "Connecting" || value == "Connected") {
                 view.setStatusBarMessage(value);
+                if(value == "Connected")
+                    view.setStatusBarWorking(false);
                 std::string tcp = Utils::find("network.tcp.connections", pairs);
                 if (!tcp.empty()) {
                     view.setTCP(tcp);
@@ -342,7 +270,11 @@ void Controller::OnStatus(const std::map<std::string, std::string> &pairs) {
             }
         } else if(type == "rpc") {
             std::string result = Utils::find("value", pairs);
-            view.appendToConsole(result);
+            result.erase(std::find_if(result.rbegin(), result.rend(),
+                                 std::not1(std::ptr_fun<int, int>(isspace))).base(), result.end());
+            view.appendToConsole(result+"\n");
+            // rpc command may have modified the wallet status
+            view.setWalletStatus(getWalletStatus());
             goto end;
         } else if(type == "wallet") {
             std::string value = Utils::find("value", pairs);
@@ -356,32 +288,32 @@ void Controller::OnStatus(const std::map<std::string, std::string> &pairs) {
                 }
             } else if(value == "change_passphrase") {
                 std::string code = Utils::find("error.code", pairs);
-                if(code == "0" && stack.wallet_is_locked()) { // double check
-                    view.setWalletStatus(Locked);
+                if(code == "0") { // double check
+                    view.setWalletStatus(getWalletStatus());
                     goto end;
                 }
             } else if(value == "encrypt") {
                 std::string code = Utils::find("error.code", pairs);
-                if(code == "0" && stack.wallet_is_locked()) { // double check
-                    view.setWalletStatus(Locked);
+                if(code == "0") { // double check
+                    view.setWalletStatus(getWalletStatus());
                     goto end;
                 }
             } else if(value == "lock") {
                 std::string code = Utils::find("error.code", pairs);
-                if(code == "0" && stack.wallet_is_locked()) { // double check
-                    view.setWalletStatus(Locked);
+                if(code == "0") { // double check
+                    view.setWalletStatus(getWalletStatus());
                     goto end;
                 }
             } else if(value == "unlock") {
                 std::string code = Utils::find("error.code", pairs);
-                if(code == "0" && !stack.wallet_is_locked()) { // double check
-                    view.setWalletStatus(Unlocked);
+                if(code == "0") { // double check
+                    view.setWalletStatus(getWalletStatus());
                     goto end;
                 }
             } else if(value == "Loaded wallet") {
                 // Now that wallet has been loaded, set locked/unlocked status in GUI
                 walletLoaded = true;
-                view.setWalletStatus(stack.wallet_is_crypted() ? Locked : Unencrypted);
+                view.setWalletStatus(isWalletCrypted() ? WalletStatus::Locked : WalletStatus::Unencrypted);
                 goto end;
             } else if(value == "Loading wallet") {
                 std::string status = Utils::find("wallet.status", pairs);
@@ -427,6 +359,12 @@ void Controller::OnStatus(const std::map<std::string, std::string> &pairs) {
             std::string fromMe = Utils::find("wallet.transaction.is_from_me", pairs);
             std::string net = Utils::find("wallet.transaction.net", pairs);
             std::string time = Utils::find("wallet.transaction.time", pairs);
+            std::string type = Utils::find("wallet.transaction.type", pairs);
+            std::string coinBase = Utils::find("wallet.transaction.coin_base", pairs);
+            std::string coinStake = Utils::find("wallet.transaction.coin_stake", pairs);
+            std::string valueOut = Utils::find("wallet.transaction.value_out", pairs);
+            std::string blended = Utils::find("blended", pairs);
+            std::string denominated = Utils::find("denominated", pairs);
 
             /*************************************************************************
              * A ZeroTime incoming transaction goes through following states:
@@ -550,31 +488,89 @@ void Controller::OnStatus(const std::map<std::string, std::string> &pairs) {
              */
 
             if(!confirmations.empty() && !confirmed.empty() && !hash.empty() && !net.empty() && !time.empty() && !mainChain.empty()) {
-                bool isConfirmed = confirmed == "1";
-                int confirms = std::stoi(confirmations);
-                bool isOutgoing = !net.empty() && net[0] == '-';
+                std::int32_t confirms = std::stoi(confirmations);
                 bool isOnChain = mainChain == "1";
                 bool isNew = value == "new";
+                bool isCoinBase = coinBase == "1";
+                bool isCoinStake = coinStake == "1";
+                bool isBlended = blended == "1";
+                bool isDenominated = denominated == "1";
+                bool isOutgoing;
+                bool isConfirmed = (confirms>=stack.minConfirmations);
+                std::string amount;
+                std::string txMsg;
 
-                bool done = (confirms>0);
+                auto txtConfs = [confirms, this]() {
+                    std::int32_t currentConfs = std::max(0, confirms); // confirms can be -1
+                    return " (" + std::to_string(currentConfs) + "/" + std::to_string(stack.minConfirmations) + ")";
+                };
 
-                bool isZeroTime = done && !isOnChain;
+                if(isBlended) {
+                    amount = net;
+                    isOutgoing = true;
 
-                std::string txMsg = done ? (isOutgoing ? "Sent" : "Received")
-                                         : (isOutgoing ? "Sending(0/1)" : "Receiving(0/1)");
+                    if(isOnChain)
+                        txMsg = "Blended";
+                    else
+                        txMsg = "Blending" + txtConfs();
+                } else if(isDenominated) {
+                    amount = net;
+                    isOutgoing = true;
 
-                if(isZeroTime)
-                    txMsg += "(ZT)"; // is confirmed but off chain (ZeroTime)
-                else if(confirms > 0 && confirms < 4)
-                    txMsg += "("+std::to_string(confirms)+")";
+                    if(isOnChain)
+                        txMsg = "Denominated";
+                    else
+                        txMsg = "Denominating" + txtConfs();
+                } else if(isCoinBase) {
+                    amount = credit;
+                    isOutgoing = false;
+
+                    if(isOnChain)
+                        txMsg = "Reward";
+                    else
+                        txMsg = "Reward (Unaccepted)";
+                } else if(isCoinStake) {
+                    if(confirms < (stack.coinbaseMaturity + 20)) {
+                        std::int64_t amountN = Utils::stringToJohnoshis(valueOut) - Utils::stringToJohnoshis(debit);
+                        amount = std::to_string(amountN);
+                    } else
+                        amount = net;
+                    isOutgoing = false;
+
+                    if(isOnChain)
+                        txMsg = "Interest";
+                    else
+                        txMsg = "Interest (Unaccepted)";
+                } else {
+                    amount = net;
+                    isOutgoing = !amount.empty() && amount[0] == '-';
+
+                    if(isConfirmed)
+                        txMsg = isOutgoing ? "Sent" : "Received";
+                    else
+                        txMsg = (isOutgoing ? "Sending" : "Receiving") + txtConfs();
+
+                    // toDo stack.updateTransactionMaxConfirmations corresponds to coin::transaction::confirmations.
+                    // In any case, if wallet is shut down before this number of confirmations
+                    // has been reached, next time we restart the wallet, the number of
+                    // confirmations won't get properly updated :(
+                    // line 4926 of stack_impl.cpp must be modified accordingly to fix this issue.
+
+                    bool isZeroTime = isConfirmed && !isOnChain;
+
+                    if(isZeroTime)
+                        txMsg += " (ZT)"; // is confirmed but off chain (ZeroTime)
+                    else if(confirms > 0 && confirms < (stack.updateTransactionMaxConfirmations + 1))
+                        txMsg += " ("+std::to_string(confirms)+")";
+                }
 
                 std::time_t txTime = (std::time_t) atoll(time.c_str());
 
-                view.addTransaction(hash, txTime, txMsg, formated(net));
-                view.setColour(hash, (isOutgoing && (isNew || confirms<0)) ? Red : (done ? Green : Yellow));
+                view.addTransaction(hash, txTime, txMsg, formated(amount));
+                view.setColour(hash, (isOutgoing && (isNew || confirms<0)) ? BulletColor::Red : (isConfirmed ? BulletColor::Green : BulletColor::Yellow));
 
                 if (!isOutgoing && isNew)
-                    view.notificationBox("Amount: " + formated(net), "Incoming Vcash transaction");
+                    view.notificationBox("Amount: " + formated(amount), "Incoming Vcash transaction");
                 goto end;
             }
         }
@@ -596,4 +592,16 @@ void Controller::rescanWallet() {
     // It seems it only rescans main address in restored wallet
     stack.rescan_chain();
     view.mainFrame->Destroy();
+}
+
+std::string Controller::getVcashVersion() {
+    return wxStack::getVersion();
+}
+
+bool Controller::validateHDSeed(std::string &seed) {
+    return wxStack::validateHDSeed(seed);
+}
+
+bool Controller::walletExists(bool isClient) {
+    return stack.wallet_exists(isClient);
 }

@@ -10,6 +10,16 @@ A decentralized currency for the internet.
 
 For Mac or Linux, make sure dependencies are installed
 
+For GUI, you need
+* libqrencode
+* wxWidgets
+
+On Mac (wxmac 3.1 or greater needed so use --devel)
+
+* brew install libqrencode
+* brew install wxmac --devel
+
+
 Linux Ubuntu Xenial 
 *  sudo apt-get install -qq cmake gcc g++ libssl-dev libboost-all-dev 
 	

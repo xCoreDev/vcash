@@ -10,30 +10,24 @@
  *
  ******************************************************************************/
 
-#ifndef RESOURCES_H
-#define RESOURCES_H
+#ifndef CONTEXTMENU_H
+#define CONTEXTMENU_H
 
 #include <wx/wxprec.h>
 
 #ifndef WX_PRECOMP
-#include <wx/bitmap.h>
-#include <wx/icon.h>
-#include <wx/image.h>
+#include <wx/menu.h>
+#include <wx/window.h>
 #endif
 
 namespace wxGUI {
+    class VcashApp;
 
-    class Resources {
+    class ContextMenu : public wxMenu {
     public:
-        static void init();
-
-        static wxBitmap redR, greenR, yellowR;
-        static wxBitmap empty, locked, settings, tools, unlocked;
-
-        static wxIcon vcashIcon;
-
-        static wxImage vcashImage64;
+        ContextMenu(VcashApp &vcashApp, wxWindow &parent, wxPoint pos = wxDefaultPosition);
     };
 }
 
-#endif // RESOURCES_H
+#endif // CONTEXTMENU_H
+ 

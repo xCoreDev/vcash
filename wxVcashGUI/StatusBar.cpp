@@ -16,13 +16,13 @@
 #include <wx/msgdlg.h>
 #endif
 
+#include "ContextMenu.h"
 #include "Resources.h"
 #include "StatusBarImage.h"
 #include "StatusBar.h"
 #include "StatusBarWallet.h"
 #include "View.h"
 #include "VcashApp.h"
-#include "WalletActions.h"
 
 using namespace wxGUI;
 
@@ -36,22 +36,31 @@ StatusBar::StatusBar(VcashApp &vcashApp, wxWindow &parent, wxFrame &toolsFrame)
 
     StatusBarImage *toolsImg = new StatusBarImage(*this, Resources::tools);
     StatusBarImage *settingsImg = new StatusBarImage(*this, Resources::settings);
-    toolsImg->bindOnLeftClick([this, &toolsFrame, toolsImg](wxMouseEvent &event) {
-        int x = event.GetX();
-        int y = event.GetY();
 
-        wxPoint point = toolsImg->ClientToScreen(wxPoint(x, y));
-        toolsFrame.Move(point.x, point.y);
-        toolsFrame.Show(true);
-        toolsFrame.Raise();
-        toolsFrame.SetFocus();
+    Bind(wxEVT_RIGHT_DOWN, [&vcashApp](wxMouseEvent &ev) {
+        vcashApp.view.showHideToolsFrame(false);
+        ev.Skip();
     });
 
-    settingsImg->bindOnLeftClick([this, &vcashApp, &parent](wxMouseEvent &event) {
-        new SettingsMenu(vcashApp, parent);
+    Bind(wxEVT_LEFT_DOWN, [&vcashApp](wxMouseEvent &ev) {
+        vcashApp.view.showHideToolsFrame(false);
+        ev.Skip();
     });
 
-    vcashApp.view.walletLock = new StatusBarWallet(vcashApp, *this);
+    toolsImg->bindOnClick([&vcashApp](wxMouseEvent &ev) {
+        vcashApp.view.showHideToolsFrame(true);
+        ev.Skip();
+    });
+
+    settingsImg->bindOnClick([&vcashApp](wxMouseEvent &ev) {
+        vcashApp.view.showContextMenu(vcashApp);
+    });
+
+    statusBarWallet = new StatusBarWallet(vcashApp, *this);
+    vcashApp.view.walletLock = statusBarWallet;
+
+    toolsImg->SetToolTip(wxT("Click to open/close tools window"));
+    settingsImg->SetToolTip(wxT("Click to open menu"));
 
     double iconSz = wxMax(toolsImg->GetBestSize().GetHeight(),
                           vcashApp.view.walletLock->GetBestSize().GetHeight());
@@ -59,8 +68,9 @@ StatusBar::StatusBar(VcashApp &vcashApp, wxWindow &parent, wxFrame &toolsFrame)
     SetSize(-1, iconSz+2);
     parent.SendSizeEvent();
 
-    Bind(wxEVT_SIZE, [this, &vcashApp, toolsImg, settingsImg](wxSizeEvent &event) {
+    activityIndicator = new wxActivityIndicator(this, wxID_ANY, wxDefaultPosition, wxSize(iconSz,iconSz));
 
+    Bind(wxEVT_SIZE, [this, &vcashApp, toolsImg, settingsImg](wxSizeEvent &ev) {
         View &view = vcashApp.view;
 
 #if defined(__WXGTK__)
@@ -73,23 +83,39 @@ StatusBar::StatusBar(VcashApp &vcashApp, wxWindow &parent, wxFrame &toolsFrame)
 #error "You must define one of: __WXGTK__, __WXMSW__ or __WXOSX__"
 #endif
         struct Local {
-            static void move(StatusBar &statusBar, Pane pane, wxStaticBitmap &bitmap) {
+            static void move(StatusBar &statusBar, Pane pane, wxWindow &bitmap) {
                 wxRect rect;
                 statusBar.GetFieldRect(pane, rect);
                 wxSize size = bitmap.GetSize();
                 bitmap.Move(rect.x + (rect.width - size.x) / 2
-                        , rect.y + (rect.height - size.y) / 2 - ICON_OFFSET);
+                           , rect.y + (rect.height - size.y) / 2 - ICON_OFFSET);
             }
         };
 
         Local::move(*this, Tools, *toolsImg);
         Local::move(*this, Settings, *settingsImg);
-        Local::move(*this, Locked, *view.walletLock);
+        Local::move(*this, Locked, *statusBarWallet);
+        Local::move(*this, Locked, *activityIndicator);
 
-        event.Skip();
+        ev.Skip();
     });
 };
 
-void StatusBar::SetMessage(wxString msg) {
+void StatusBar::setMessage(wxString msg) {
     SetStatusText(msg, Msg);
+}
+
+void StatusBar::setWorking(bool working) {
+    bool oldWorking = activityIndicator->IsRunning();
+    if(oldWorking==working)
+        return;
+    if(working) {
+        statusBarWallet->Hide();
+        activityIndicator->Show();
+        activityIndicator->Start();
+    } else {
+        activityIndicator->Stop();
+        activityIndicator->Hide();
+        statusBarWallet->Show();
+    }
 }

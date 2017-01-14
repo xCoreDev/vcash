@@ -44,6 +44,12 @@ ToolsPanel::ToolsPanel(VcashApp &vcashApp, wxWindow &parent)
             , 10               // border size
     );
     SetSizerAndFit(sizerV);
+
+    notebook->Bind(wxEVT_CHAR, [&vcashApp](wxKeyEvent &ev) {
+        if(ev.GetKeyCode() == WXK_ESCAPE)
+            vcashApp.view.showHideToolsFrame(false);
+        ev.Skip();
+    });
 }
 
 void ToolsPanel::showConsolePage() {

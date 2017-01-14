@@ -18,6 +18,7 @@
 #include <wx/textdlg.h>
 #endif
 
+#include "ContextMenu.h"
 #include "Resources.h"
 #include "StatusBarWallet.h"
 #include "VcashApp.h"
@@ -26,32 +27,36 @@
 using namespace wxGUI;
 
 StatusBarWallet::StatusBarWallet(VcashApp &vcashApp, wxWindow &parent)
-        : walletStatus(Unknown)
+        : walletStatus(WalletStatus::Unknown)
         , bitmapLocked(Resources::locked)
         , bitmapUnlocked(Resources::unlocked)
         , bitmapUnknown (Resources::empty)
-        , StatusBarImage(parent, *new wxBitmap(), [this, &parent, &vcashApp](wxMouseEvent &ev) {
-              switch (walletStatus) {
-                  case Locked: {
-                      WalletActions::unlock(vcashApp, parent);
-                      break;
-                  }
+        , StatusBarImage(parent, *new wxBitmap()) {
 
-                  case Unlocked: {
-                      vcashApp.controller.walletLock();
-                      break;
-                  }
+    bindOnLeftClick([&parent, &vcashApp, this](wxMouseEvent &ev) {
+        switch (walletStatus) {
+            case WalletStatus::Locked: {
+                WalletActions::unlock(vcashApp, parent);
+                break;
+            }
+            case WalletStatus::Unlocked: {
+                WalletActions::lock(vcashApp, parent);
+                break;
+            }
+            case WalletStatus::Unencrypted: {
+                WalletActions::encrypt(vcashApp, parent);
+                break;
+            }
+            case WalletStatus::Unknown: {
+                break;
+            }
+        }
+    });
 
-                  case Unencrypted: {
-                      WalletActions::encrypt(vcashApp, parent);
-                      break;
-                  }
+    bindOnRightClick([&vcashApp](wxMouseEvent &ev) {
+        vcashApp.view.showContextMenu(vcashApp);
+    });
 
-                  case Unknown: {
-                      break;
-                  }
-              }
-          }) {
     setWalletStatus(walletStatus);
 };
 
@@ -62,14 +67,19 @@ WalletStatus StatusBarWallet::getWalletStatus() {
 void StatusBarWallet::setWalletStatus(WalletStatus st) {
     walletStatus = st;
     switch (walletStatus) {
-        case Locked:
+        case WalletStatus::Locked:
             SetBitmap(bitmapLocked);
+            SetToolTip(wxT("Click to unlock your wallet"));
             break;
-        case Unlocked:
-        case Unencrypted:
+        case WalletStatus::Unlocked:
             SetBitmap(bitmapUnlocked);
+            SetToolTip(wxT("Click to lock your wallet"));
             break;
-        case Unknown:
+        case WalletStatus::Unencrypted:
+            SetBitmap(bitmapUnlocked);
+            SetToolTip(wxT("Click to encrypt your wallet"));
+            break;
+        case WalletStatus::Unknown:
             SetBitmap(bitmapUnknown);
             break;
     }

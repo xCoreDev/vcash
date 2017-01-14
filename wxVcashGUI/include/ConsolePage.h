@@ -22,6 +22,8 @@
 #include <wx/window.h>
 #endif
 
+#include <set>
+
 namespace wxGUI {
 
     class VcashApp;
@@ -35,6 +37,11 @@ namespace wxGUI {
     private:
         wxRichTextCtrl *output;
         wxTextCtrl *command;
+        bool wasDoubleClick, focusFromCommand;
+        int consecutiveEnters;
+
+        // Commands for autocompleting
+        static const std::set<std::string> rpcCommands;
     };
 }
 

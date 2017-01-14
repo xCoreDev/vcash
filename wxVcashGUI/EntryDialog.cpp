@@ -21,38 +21,44 @@
 #endif
 
 #include "EntryDialog.h"
+#include "Resources.h"
+
+#include <thread>
 
 using namespace wxGUI;
 
 EntryDialog::EntryDialog( wxWindow &parent, const wxString &title
-                        , const std::vector<Entry> &entries
-                        , std::function<bool (const std::vector<wxString> &)> validate)
+        , const std::vector<Entry> &entries
+        , std::function<bool (EntryDialog &dlg)> validate)
         : textCtrls()
-        , validate(validate)
+        , validatef(validate)
+        , title(title)
         , wxDialog(&parent, wxID_ANY, title) {
 
-    int cols = 2, vgap = 5, hgap = 10;
+    SetIcon(Resources::vcashIcon);
+
+    const int cols = 2, vgap = 5, hgap = 10, border = 20;
     wxFlexGridSizer *fgs = new wxFlexGridSizer(cols, vgap, hgap);
 
     for(auto const& entry: entries) {
         fgs->Add(new wxStaticText(this, wxID_ANY, entry.label+":"), wxSizerFlags().Right());
         wxTextCtrl *textCtrl = new wxTextCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition, entry.size, entry.style | wxTE_PROCESS_ENTER );
         textCtrl->SetToolTip(entry.toolTip);
-        fgs->Add(textCtrl, 1, wxRIGHT | wxEXPAND, 20);
+        fgs->Add(textCtrl, 1, wxRIGHT | wxEXPAND, border);
         textCtrls.push_back(textCtrl);
     }
 
-    wxButton *okButton = new wxButton(this, wxID_ANY, wxT("Ok"));
-    wxButton *cancelButton = new wxButton(this, wxID_ANY, wxT("Cancel"));
+    wxButton *okButton = new wxButton(this, wxID_OK, wxT("Ok"));
+    wxButton *cancelButton = new wxButton(this, wxID_CANCEL, wxT("Cancel"));
 
     wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
     hbox->Add(okButton);
-    hbox->AddSpacer(10);
+    hbox->AddSpacer(border);
     hbox->Add(cancelButton);
 
     wxBoxSizer *vbox = new wxBoxSizer(wxVERTICAL);
-    vbox->Add(fgs, 1, wxALIGN_CENTER  | wxALL, 20);
-    vbox->Add(hbox, 0, wxALIGN_CENTER | wxTOP | wxBOTTOM, 10);
+    vbox->Add(fgs, 1, wxALIGN_CENTER  | wxALL, border);
+    vbox->Add(hbox, 0, wxALIGN_CENTER | wxTOP | wxBOTTOM, border);
 
     SetSizerAndFit(vbox);
 
@@ -77,6 +83,20 @@ void EntryDialog::onReturnKeyPressed() {
     for(auto const& entry: textCtrls) {
         wxString value = entry->GetValue();
         if(!value.IsAscii() || value.empty()) {
+            wxString msg = wxT("Please, enter requested information");
+            wxString tooltip = entry->GetToolTipText();
+            if(!tooltip.empty())
+                msg += wxT(":\n"+tooltip);
+            wxMessageBox(msg, title, wxOK | wxICON_ERROR, this);
+
+            for(int i=0; i<10; i++) {
+                if(i%2 == 0)
+                    entry->Hide();
+                else
+                    entry->Show();
+                wxSafeYield(this);
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
             entry->SetFocus();
             return;
         }
@@ -85,7 +105,7 @@ void EntryDialog::onReturnKeyPressed() {
     values.clear();
     for(auto const& entry: textCtrls)
         values.push_back(entry->GetValue());
-    if(validate(values))
+    if(validatef(*this))
         EndModal(wxID_OK);
 }
 
@@ -108,14 +128,21 @@ std::vector<wxString> EntryDialog::getValues() {
 }
 
 std::pair<int, std::vector<wxString>>
-    EntryDialog::run( wxWindow &parent
-                    , const wxString &title
-                    , const std::vector<EntryDialog::Entry> &entries
-                    , std::function<bool(const std::vector<wxString> &)> validate) {
+EntryDialog::run( wxWindow &parent
+        , const wxString &title
+        , const std::vector<EntryDialog::Entry> &entries
+        , std::function<bool(EntryDialog &dlg)> validate) {
 
     EntryDialog entryDialog(parent, title, entries, validate);
     auto result = entryDialog.ShowModal();
     entryDialog.Destroy();
 
     return make_pair(result, entryDialog.getValues());
+}
+
+bool EntryDialog::validate(bool cond, wxString msg) {
+    if(!cond) {
+        wxMessageBox(msg, title, wxOK | wxICON_ERROR, this);
+    }
+    return cond;
 }
