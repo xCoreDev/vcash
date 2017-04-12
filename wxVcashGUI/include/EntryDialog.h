@@ -1,0 +1,60 @@
+/******************************************************************************
+ * wxVcashGUI: a GUI for Vcash, the decentralized currency
+ *             for the internet (https://v.cash/).
+ *
+ * Copyright (c) kryptRichards (krypt.Richards@gmail.com)
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ ******************************************************************************/
+
+#ifndef ENTRYDIALOG_H
+#define ENTRYDIALOG_H
+
+#include <wx/wxprec.h>
+
+#ifndef WX_PRECOMP
+#include <wx/msgdlg.h>
+#include <wx/textctrl.h>
+#endif
+
+#include <functional>
+#include <vector>
+
+namespace wxGUI {
+
+    class EntryDialog : public wxDialog {
+    public:
+        struct Entry {
+            wxString label;
+            long style;
+            wxString toolTip;
+            wxSize size;
+        };
+
+        EntryDialog( wxWindow &parent, const wxString &title
+                   , const std::vector<Entry> &entries
+                   , std::function<bool (const std::vector<wxString> &)> validate);
+
+        std::vector<wxString> getValues();
+
+        static std::pair<int,std::vector<wxString>> run(wxWindow &parent
+                , const wxString &title
+                , const std::vector<Entry> &entries
+                , std::function<bool (const std::vector<wxString> &)> validate);
+
+    private:
+        std::vector<wxTextCtrl*> textCtrls;
+        std::vector<wxString> values;
+
+        std::function<bool (const std::vector<wxString> &)> validate;
+
+        void onKeyPressed(wxKeyEvent &ev);
+
+        void onReturnKeyPressed();
+    };
+}
+
+#endif //ENTRYDIALOG_H

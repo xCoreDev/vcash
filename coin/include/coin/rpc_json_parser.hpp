@@ -25,9 +25,13 @@
 #include <string>
 
 #include <boost/property_tree/ptree.hpp>
+#if BOOST_VERSION > 106000
+#include <boost/property_tree/json_parser.hpp>
+#else
 #include <boost/property_tree/detail/json_parser_read.hpp>
 #include <boost/property_tree/detail/json_parser_write.hpp>
 #include <boost/property_tree/detail/json_parser_error.hpp>
+#endif
 
 namespace coin {
 
